@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		3F59F8502FB2190F00E1EE0C /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 3F59F84F2FB2190500E1EE0C /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		3F59F8262FB0E49B00E1EE0C /* drewisy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = drewisy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3F59F84F2FB2190500E1EE0C /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -45,6 +50,7 @@
 		3F59F7C72FB0E2BE00E1EE0C = {
 			isa = PBXGroup;
 			children = (
+				3F59F84F2FB2190500E1EE0C /* .gitignore */,
 				3F59F7D22FB0E2BE00E1EE0C /* drewisy */,
 				3F59F8262FB0E49B00E1EE0C /* drewisy.app */,
 			);
@@ -114,6 +120,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3F59F8502FB2190F00E1EE0C /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

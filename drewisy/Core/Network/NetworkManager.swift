@@ -7,7 +7,6 @@
 
 import Foundation
 
-// APIResponse'u en üste taşıyarak NetworkManager içinde görünür kılıyoruz
 struct APIResponse<T: Decodable>: Decodable {
     let success: Bool
     let data: T?
@@ -32,7 +31,6 @@ enum APIError: Error, LocalizedError {
 actor NetworkManager {
     static let shared = NetworkManager()
     
-    // Hem dönen tip (T) hem gönderilen body tipi (B) için generic tanımlama
     func request<T: Decodable, B: Encodable>(url: String, method: String = "GET", body: B? = nil) async throws -> T {
         guard let urlObj = URL(string: url) else { throw APIError.invalidURL }
         var request = URLRequest(url: urlObj)
@@ -46,10 +44,52 @@ actor NetworkManager {
         let (data, _) = try await URLSession.shared.data(for: request)
         
         do {
-            // APIResponse artık burada tanınacaktır
             let response = try JSONDecoder().decode(APIResponse<T>.self, from: data)
             guard response.success, let responseData = response.data else {
                 throw APIError.serverError(code: response.code, message: response.error ?? "Hata")
+            }
+            return responseData
+        } catch {
+            throw APIError.decodingError
+        }
+    }
+    
+    func uploadMultipart<T: Decodable>(url: String, method: String = "POST", fields: [String: String], fileData: Data, fileName: String, mimeType: String, token: String?) async throws -> T {
+        guard let urlObj = URL(string: url) else { throw APIError.invalidURL }
+        var request = URLRequest(url: urlObj)
+        request.httpMethod = method
+        
+        let boundary = UUID().uuidString
+        if let token = token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        var body = Data()
+        let boundaryPrefix = "--\(boundary)\r\n"
+        
+        // Form Text Alanları
+        for (key, value) in fields {
+            body.append(boundaryPrefix.data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(value)\r\n".data(using: .utf8)!)
+        }
+        
+        // Dosya Alanı
+        body.append(boundaryPrefix.data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        do {
+            let response = try JSONDecoder().decode(APIResponse<T>.self, from: data)
+            guard response.success, let responseData = response.data else {
+                throw APIError.serverError(code: response.code, message: response.error ?? "Yükleme Hatası")
             }
             return responseData
         } catch {

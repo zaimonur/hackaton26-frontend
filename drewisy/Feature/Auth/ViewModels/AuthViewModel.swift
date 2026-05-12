@@ -5,6 +5,7 @@
 //  Created by Onur Zaim on 10.05.2026.
 //
 
+// Feature/Auth/ViewModels/AuthViewModel.swift
 import Foundation
 import Observation
 
@@ -12,21 +13,19 @@ import Observation
 final class AuthViewModel {
     var email = ""
     var password = ""
-    var role = "customer"
+    var role = "staff"
     var isLoading = false
     var errorMessage: String?
-    
-    var isAuthenticated = false
     var isRegisterMode = false
-    var currentUser: User? // EKLENDİ: Yönlendirme için kullanıcıyı tutuyoruz
     
     private let baseURL = "http://localhost:8080/api/v1"
     
     @MainActor
-    func authenticate() async {
+    func authenticate() async -> AuthData? {
         isLoading = true
         errorMessage = nil
         let path = isRegisterMode ? "/register" : "/login"
+        var resultData: AuthData? = nil
         
         do {
             if isRegisterMode {
@@ -36,9 +35,7 @@ final class AuthViewModel {
                 errorMessage = "Kayıt başarılı! Giriş yapabilirsiniz."
             } else {
                 let req = LoginRequest(email: email, password: password)
-                let authData: AuthData = try await NetworkManager.shared.request(url: baseURL + path, method: "POST", body: req)
-                self.currentUser = authData.user // EKLENDİ: Rolü yakalıyoruz
-                self.isAuthenticated = true
+                resultData = try await NetworkManager.shared.request(url: baseURL + path, method: "POST", body: req)
             }
         } catch let error as APIError {
             errorMessage = error.localizedDescription
@@ -46,5 +43,6 @@ final class AuthViewModel {
             errorMessage = "Bağlantı hatası."
         }
         isLoading = false
+        return resultData
     }
 }

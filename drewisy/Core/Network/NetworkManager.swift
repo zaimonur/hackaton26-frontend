@@ -31,22 +31,39 @@ enum APIError: Error, LocalizedError {
 actor NetworkManager {
     static let shared = NetworkManager()
     
-    func request<T: Decodable, B: Encodable>(url: String, method: String = "GET", body: B? = nil) async throws -> T {
+    func request<T: Decodable, B: Encodable>(
+        url: String,
+        method: String = "GET",
+        body: B? = nil,
+        token: String? = nil // Token desteği eklendi
+    ) async throws -> T {
         guard let urlObj = URL(string: url) else { throw APIError.invalidURL }
         var request = URLRequest(url: urlObj)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        // Token varsa Header'a enjekte et
+        if let token = token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
         if let body = body {
             request.httpBody = try? JSONEncoder().encode(body)
         }
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        // HTTP Statüsünü kontrol et (404 vb. durumlar için)
+        if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+            // Backend'den gelen hata mesajını parse etmeye çalış, olmazsa statü kodunu dön
+            let errorMsg = (try? JSONDecoder().decode(APIResponse<T>.self, from: data))?.error
+            throw APIError.serverError(code: httpResponse.statusCode, message: errorMsg ?? "Sunucu Hatası")
+        }
         
         do {
-            let response = try JSONDecoder().decode(APIResponse<T>.self, from: data)
-            guard response.success, let responseData = response.data else {
-                throw APIError.serverError(code: response.code, message: response.error ?? "Hata")
+            let responseObj = try JSONDecoder().decode(APIResponse<T>.self, from: data)
+            guard responseObj.success, let responseData = responseObj.data else {
+                throw APIError.serverError(code: responseObj.code, message: responseObj.error ?? "İşlem başarısız")
             }
             return responseData
         } catch {

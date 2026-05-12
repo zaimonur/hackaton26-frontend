@@ -16,8 +16,8 @@ struct drewisyApp: App {
             Group {
                 if appState.isAuthenticated {
                     switch appState.userRole {
-                    case "staff":
-                        StaffDashboardView()
+                    case "seller":
+                        SellerRootView()
                     case "admin":
                         AdminDashboardView()
                     default:

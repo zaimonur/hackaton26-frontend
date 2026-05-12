@@ -2,7 +2,7 @@
 //  AddProductView.swift
 //  drewisy
 //
-//  Created by Onur Zaim on 12.05.2026.
+//  Created by Onur Zaim on 13.05.2026.
 //
 
 import SwiftUI
@@ -11,17 +11,16 @@ import PhotosUI
 struct AddProductView: View {
     @State private var viewModel = AddProductViewModel()
     @Environment(AppState.self) private var appState
-    @FocusState private var focusedField: Field?
-    
-    enum Field { case title, desc, price, category }
+    var onUploadSuccess: () -> Void // Başarılı yükleme sonrası tetiklenir
     
     var body: some View {
         NavigationStack {
             Form {
+                // Görsel Bölümü
                 Section {
                     HStack {
                         Spacer()
-                        PhotosPicker(selection: $viewModel.selectedItem, matching: .images, photoLibrary: .shared()) {
+                        PhotosPicker(selection: $viewModel.selectedItem, matching: .images) {
                             if let data = viewModel.selectedImageData, let uiImage = UIImage(data: data) {
                                 Image(uiImage: uiImage)
                                     .resizable().scaledToFill()
@@ -41,30 +40,40 @@ struct AddProductView: View {
                     .listRowBackground(Color.clear)
                 }
                 
-                Section("Ürün Detayları") {
+                Section("Ürün Bilgileri") {
                     TextField("Ürün Adı", text: $viewModel.title)
-                        .focused($focusedField, equals: .title)
-                    TextField("Kategori (Örn: Elektronik)", text: $viewModel.category)
-                        .focused($focusedField, equals: .category)
-                    TextField("Fiyat", text: $viewModel.price)
-                        .keyboardType(.decimalPad)
-                        .focused($focusedField, equals: .price)
+                    TextField("Kategori (Örn: Giyim)", text: $viewModel.category) // YENİDEN EKLENEN KATEGORİ ALANI
+                    TextField("Fiyat", text: $viewModel.price).keyboardType(.decimalPad)
+                    
+                    // ✨ AI Butonu
+                    Button {
+                        viewModel.description = "Yapay zeka asistanı yakında burada..."
+                    } label: {
+                        Label("AI ile Açıklama Üret", systemImage: "sparkles")
+                            .font(Theme.captionFont.bold())
+                            .foregroundColor(.purple)
+                    }
+                    .buttonStyle(.plain)
+                    
                     TextEditor(text: $viewModel.description)
                         .frame(height: 100)
-                        .focused($focusedField, equals: .desc)
                 }
                 
                 Section {
                     Button {
-                        focusedField = nil
-                        Task { await viewModel.uploadProduct(token: appState.token) }
+                        Task {
+                            await viewModel.uploadProduct(token: appState.token)
+                            if viewModel.alertMessage?.contains("eklendi") == true {
+                                onUploadSuccess()
+                            }
+                        }
                     } label: {
                         HStack {
                             Spacer()
                             if viewModel.isLoading {
                                 ProgressView()
                             } else {
-                                Text("Ürünü Kaydet").font(Theme.bodyFont.bold())
+                                Text("Ürünü Yayına Al").font(Theme.bodyFont.bold())
                             }
                             Spacer()
                         }

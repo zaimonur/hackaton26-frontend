@@ -34,8 +34,8 @@ struct AuthView: View {
                     if viewModel.isRegisterMode {
                         Picker("Rol", selection: $viewModel.role) {
                             Text("Müşteri").tag("customer")
-                            Text("Satıcı").tag("admin")
-                            Text("Personel").tag("staff")
+                            Text("Satıcı").tag("seller")
+                            Text("Admin").tag("admin")
                         }
                         .pickerStyle(.segmented)
                         .padding(.top, 8)

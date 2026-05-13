@@ -18,7 +18,7 @@ struct CreateStoreRequest: Encodable {
     let description: String
 }
 
-struct ProductResponse: Decodable, Identifiable {
+struct ProductResponse: Decodable, Identifiable, Hashable, Equatable {
     let id: String
     let store_id: String
     let store_name: String
@@ -29,7 +29,7 @@ struct ProductResponse: Decodable, Identifiable {
     let image_path: String
 }
 
-// ✨ YENİ: AI Entegrasyon Modelleri
+// AI Entegrasyon Modelleri
 struct GenerateDescriptionRequest: Encodable {
     let title: String
     let category: String

@@ -21,3 +21,13 @@ struct OrderResponse: Decodable {
     let total_amount: Double
     let status: String
 }
+
+// AI Arama isteği için
+struct SmartSearchRequest: Encodable {
+    let query: String
+}
+
+// Backend'den sarmalanmış olarak gelen AI yanıtı
+struct SmartSearchResponse: Decodable {
+    let products: [ProductResponse]
+}

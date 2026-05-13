@@ -11,12 +11,11 @@ import PhotosUI
 struct AddProductView: View {
     @State private var viewModel = AddProductViewModel()
     @Environment(AppState.self) private var appState
-    var onUploadSuccess: () -> Void // Başarılı yükleme sonrası tetiklenir
+    var onUploadSuccess: () -> Void
     
     var body: some View {
         NavigationStack {
             Form {
-                // Görsel Bölümü
                 Section {
                     HStack {
                         Spacer()
@@ -42,18 +41,30 @@ struct AddProductView: View {
                 
                 Section("Ürün Bilgileri") {
                     TextField("Ürün Adı", text: $viewModel.title)
-                    TextField("Kategori (Örn: Giyim)", text: $viewModel.category) // YENİDEN EKLENEN KATEGORİ ALANI
+                    TextField("Kategori (Örn: Giyim)", text: $viewModel.category)
                     TextField("Fiyat", text: $viewModel.price).keyboardType(.decimalPad)
                     
-                    // ✨ AI Butonu
+                    // YENİ: Anahtar Kelime Alanı
+                    TextField("Anahtar Kelimeler (Opsiyonel, Örn: kışlık, dar)", text: $viewModel.keywords)
+                    
+                    // ✨ AI Butonu (Güncellenmiş Reaktif Durum)
                     Button {
-                        viewModel.description = "Yapay zeka asistanı yakında burada..."
+                        Task { await viewModel.generateAIDescription(token: appState.token) }
                     } label: {
-                        Label("AI ile Açıklama Üret", systemImage: "sparkles")
-                            .font(Theme.captionFont.bold())
-                            .foregroundColor(.purple)
+                        HStack(spacing: 8) {
+                            if viewModel.isGeneratingAI {
+                                ProgressView().tint(.purple)
+                                Text("AI Üretiyor...")
+                            } else {
+                                Image(systemName: "sparkles")
+                                Text("AI ile Açıklama Üret")
+                            }
+                        }
+                        .font(Theme.captionFont.bold())
+                        .foregroundColor(.purple)
                     }
                     .buttonStyle(.plain)
+                    .disabled(viewModel.isGeneratingAI)
                     
                     TextEditor(text: $viewModel.description)
                         .frame(height: 100)

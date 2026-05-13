@@ -28,3 +28,14 @@ struct ProductResponse: Decodable, Identifiable {
     let category: String
     let image_path: String
 }
+
+// ✨ YENİ: AI Entegrasyon Modelleri
+struct GenerateDescriptionRequest: Encodable {
+    let title: String
+    let category: String
+    let keywords: String
+}
+
+struct GenerateDescriptionResponse: Decodable {
+    let generated_description: String
+}

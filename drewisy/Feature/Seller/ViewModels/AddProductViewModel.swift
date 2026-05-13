@@ -5,6 +5,8 @@
 //  Created by Onur Zaim on 12.05.2026.
 //
 
+// Feature/Seller/ViewModels/AddProductViewModel.swift
+
 import SwiftUI
 import PhotosUI
 import Observation
@@ -19,6 +21,7 @@ final class AddProductViewModel {
     var description = ""
     var price = ""
     var category = ""
+    var keywords = "" // YENİ: AI için anahtar kelimeler
     
     var selectedItem: PhotosPickerItem? = nil {
         didSet {
@@ -28,6 +31,8 @@ final class AddProductViewModel {
     var selectedImageData: Data? = nil
     
     var isLoading = false
+    var isGeneratingAI = false // YENİ: AI yükleme durumu
+    
     var alertMessage: String?
     var showAlert = false
     
@@ -42,16 +47,15 @@ final class AddProductViewModel {
         
         isLoading = true
         
-        // YENİ: Virgülü noktaya çevirerek Backend'in (Go) ParseFloat fonksiyonunu kurtarıyoruz.
         let formattedPrice = price.replacingOccurrences(of: ",", with: ".")
         let fields = ["title": title, "description": description, "price": formattedPrice, "category": category]
         
         do {
             let _: DummyProductResponse = try await NetworkManager.shared.uploadMultipart(
-                url: "http://localhost:8080/api/v1/products", // Go backend endpoint'imiz
+                url: "http://localhost:8080/api/v1/products",
                 fields: fields,
                 fileData: fileData,
-                fileName: "product.jpg", // Daha genel destek için jpg
+                fileName: "product.jpg",
                 mimeType: "image/jpeg",
                 token: token
             )
@@ -67,7 +71,39 @@ final class AddProductViewModel {
         isLoading = false
     }
     
-    // YENİ: Data çevirisi hatalarına (HEIC/iCloud gecikmesi vb.) karşı daha güvenli ve hata yönetimli yapı
+    // ✨ YENİ: Yapay Zeka İstek Fonksiyonu
+    @MainActor
+    func generateAIDescription(token: String?) async {
+        guard let token else { return }
+        guard !title.isEmpty, !category.isEmpty else {
+            alertMessage = "AI ile açıklama üretmek için ürün adı ve kategorisi zorunludur."
+            showAlert = true
+            return
+        }
+        
+        isGeneratingAI = true
+        
+        let req = GenerateDescriptionRequest(title: title, category: category, keywords: keywords)
+        
+        do {
+            let response: GenerateDescriptionResponse = try await NetworkManager.shared.request(
+                url: "http://localhost:8080/api/v1/ai/generate-description",
+                method: "POST",
+                body: req,
+                token: token
+            )
+            self.description = response.generated_description
+        } catch let error as APIError {
+            alertMessage = error.localizedDescription
+            showAlert = true
+        } catch {
+            alertMessage = "Yapay zeka servisine ulaşılamadı."
+            showAlert = true
+        }
+        
+        isGeneratingAI = false
+    }
+    
     private func loadTransferable(from item: PhotosPickerItem?) async {
         guard let item else {
             await MainActor.run { self.selectedImageData = nil }
@@ -79,10 +115,9 @@ final class AddProductViewModel {
                 await MainActor.run { self.selectedImageData = data }
             }
         } catch {
-            // Çeviri başarısız olursa UI'ın takılı kalmaması için uyarı ver
             await MainActor.run {
                 self.selectedImageData = nil
-                self.alertMessage = "Görsel formatı okunamadı (Örn: Desteklenmeyen HEIC/iCloud hatası). Lütfen farklı bir görsel seçin."
+                self.alertMessage = "Görsel formatı okunamadı. Lütfen farklı bir görsel seçin."
                 self.showAlert = true
             }
         }
@@ -93,6 +128,7 @@ final class AddProductViewModel {
         description = ""
         price = ""
         category = ""
+        keywords = ""
         selectedItem = nil
         selectedImageData = nil
     }

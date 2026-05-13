@@ -30,6 +30,7 @@ enum APIError: Error, LocalizedError {
 
 actor NetworkManager {
     static let shared = NetworkManager()
+    static let baseURL = "http://localhost:8080"
     
     func request<T: Decodable, B: Encodable>(
         url: String,

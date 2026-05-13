@@ -27,13 +27,3 @@ struct SellerMainTabView: View {
         .tint(Theme.primary)
     }
 }
-
-// Statik Dashboard
-struct SellerDashboardView: View {
-    var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            Text("Mağazanıza Hoş Geldiniz").font(Theme.titleFont).foregroundColor(Theme.textPrimary)
-        }
-    }
-}

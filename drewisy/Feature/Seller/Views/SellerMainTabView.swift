@@ -8,21 +8,28 @@
 import SwiftUI
 
 struct SellerMainTabView: View {
-    @State private var selectedTab = 0
-    
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView {
+            // Sipariş Yönetimi Modülü
+            SellerOrdersView()
+                .tabItem {
+                    Label("Siparişler", systemImage: "shippingbox.fill")
+                }
+
             SellerDashboardView()
-                .tabItem { Label("Özet", systemImage: "chart.bar.fill") }.tag(0)
-            
+                .tabItem {
+                    Label("Panel", systemImage: "chart.bar.fill")
+                }
+                
             MyProductsView()
-                .tabItem { Label("Ürünlerim", systemImage: "bag.fill") }.tag(1)
-            
-            AddProductView(onUploadSuccess: { selectedTab = 1 })
-                .tabItem { Label("Yeni Ürün", systemImage: "plus.circle.fill") }.tag(2)
-            
+                .tabItem {
+                    Label("Ürünlerim", systemImage: "bag.fill")
+                }
+                
             ProfileSettingsView()
-                .tabItem { Label("Profil", systemImage: "person.crop.circle") }.tag(3)
+                .tabItem {
+                    Label("Profil", systemImage: "person.fill")
+                }
         }
         .tint(Theme.primary)
     }

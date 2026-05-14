@@ -39,3 +39,33 @@ struct GenerateDescriptionRequest: Encodable {
 struct GenerateDescriptionResponse: Decodable {
     let generated_description: String
 }
+
+struct SellerOrderItem: Decodable, Hashable {
+    let product_title: String
+    let product_image: String
+    let quantity: Int
+    let unit_price: Double
+    let total_price: Double
+}
+
+struct SellerOrderResponse: Decodable, Identifiable, Hashable {
+    let id: String
+    let customer_email: String
+    let total_amount: Double
+    let status: String
+    let created_at: String
+    let items: [SellerOrderItem]
+    
+    enum CodingKeys: String, CodingKey {
+        case id = "order_id"
+        case customer_email
+        case total_amount
+        case status
+        case created_at
+        case items
+    }
+}
+
+struct UpdateOrderStatusRequest: Encodable {
+    let status: String
+}

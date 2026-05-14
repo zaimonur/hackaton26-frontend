@@ -41,7 +41,11 @@ struct CustomerCatalogView: View {
                         ScrollView {
                             LazyVGrid(columns: columns, spacing: Theme.spacing) {
                                 ForEach(viewModel.products) { product in
-                                    productCard(for: product)
+                                    // Modern Navigasyon Bağlantısı
+                                    NavigationLink(value: product) {
+                                        productCard(for: product)
+                                    }
+                                    .buttonStyle(.plain) // Kartın tasarımını bozmaması için
                                 }
                             }
                             .padding(Theme.spacing)
@@ -50,13 +54,16 @@ struct CustomerCatalogView: View {
                 }
             }
             .navigationTitle("Katalog")
+            // Merkezi Rota Tanımı
+            .navigationDestination(for: ProductResponse.self) { product in
+                ProductDetailView(product: product)
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     cartButton
                 }
             }
             .task { await viewModel.loadProducts() }
-            // Arama kutusu temizlendiğinde otomatik yükle
             .onChange(of: viewModel.searchText) { _, newValue in
                 if newValue.isEmpty {
                     Task { await viewModel.loadProducts() }
@@ -95,7 +102,6 @@ struct CustomerCatalogView: View {
             .frame(height: 44)
             .background(Theme.surface)
             .cornerRadius(Theme.cornerRadius)
-            // AI Glow ve Border Efekti
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cornerRadius)
                     .stroke(viewModel.isAIEnabled ? Color.purple.opacity(0.6) : Color.clear, lineWidth: 1.5)
@@ -103,7 +109,6 @@ struct CustomerCatalogView: View {
             )
             .animation(.spring(response: 0.3), value: viewModel.isAIEnabled)
             
-            // AI Toggle Butonu
             Button {
                 withAnimation(.spring()) {
                     viewModel.isAIEnabled.toggle()
@@ -140,7 +145,6 @@ struct CustomerCatalogView: View {
         .tint(Theme.primary)
     }
 
-    // Mevcut productCard fonksiyonu buraya gelecek...
     @ViewBuilder
     private func productCard(for product: ProductResponse) -> some View {
         VStack(alignment: .leading, spacing: 8) {

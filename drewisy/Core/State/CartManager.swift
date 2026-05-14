@@ -22,8 +22,9 @@ final class CartManager {
         }
     }
     
-    func addToCart(product: ProductResponse) {
-        cartItems[product, default: 0] += 1
+    /// Ürünü sepete ekler. Varsayılan olarak 1 adet ekler.
+    func addToCart(product: ProductResponse, quantity: Int = 1) {
+        cartItems[product, default: 0] += quantity
     }
     
     func removeFromCart(product: ProductResponse) {

@@ -21,7 +21,7 @@ final class AddProductViewModel {
     var description = ""
     var price = ""
     var category = ""
-    var keywords = "" // YENİ: AI için anahtar kelimeler
+    var keywords = "" // AI için anahtar kelimeler
     
     var selectedItem: PhotosPickerItem? = nil {
         didSet {
@@ -31,7 +31,7 @@ final class AddProductViewModel {
     var selectedImageData: Data? = nil
     
     var isLoading = false
-    var isGeneratingAI = false // YENİ: AI yükleme durumu
+    var isGeneratingAI = false // AI yükleme durumu
     
     var alertMessage: String?
     var showAlert = false
@@ -71,7 +71,7 @@ final class AddProductViewModel {
         isLoading = false
     }
     
-    // ✨ YENİ: Yapay Zeka İstek Fonksiyonu
+    // Yapay Zeka İstek Fonksiyonu
     @MainActor
     func generateAIDescription(token: String?) async {
         guard let token else { return }

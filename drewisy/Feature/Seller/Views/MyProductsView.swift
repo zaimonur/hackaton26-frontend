@@ -28,7 +28,7 @@ struct MyProductsView: View {
                 } else {
                     List(viewModel.products) { product in
                         HStack(spacing: 16) {
-                            // 🔥 YENİ: AsyncImage entegrasyonu
+                            // AsyncImage entegrasyonu
                             AsyncImage(url: URL(string: NetworkManager.baseURL + product.image_path)) { phase in
                                 switch phase {
                                 case .empty:
@@ -62,7 +62,7 @@ struct MyProductsView: View {
                         }
                         .listRowBackground(Theme.surface)
                         .listRowSeparatorTint(Theme.textSecondary.opacity(0.2))
-                        // 🔥 YENİ: Swipe-to-Delete aksiyonu
+                        // Swipe-to-Delete aksiyonu
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 Task { await viewModel.deleteProduct(id: product.id, token: appState.token) }

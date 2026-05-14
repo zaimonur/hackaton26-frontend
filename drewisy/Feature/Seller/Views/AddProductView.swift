@@ -44,10 +44,10 @@ struct AddProductView: View {
                     TextField("Kategori (Örn: Giyim)", text: $viewModel.category)
                     TextField("Fiyat", text: $viewModel.price).keyboardType(.decimalPad)
                     
-                    // YENİ: Anahtar Kelime Alanı
+                    // Anahtar Kelime Alanı
                     TextField("Anahtar Kelimeler (Opsiyonel, Örn: kışlık, dar)", text: $viewModel.keywords)
                     
-                    // ✨ AI Butonu (Güncellenmiş Reaktif Durum)
+                    // AI Butonu (Güncellenmiş Reaktif Durum)
                     Button {
                         Task { await viewModel.generateAIDescription(token: appState.token) }
                     } label: {

@@ -10,61 +10,37 @@ import Observation
 
 @Observable
 final class ProductDetailViewModel {
+    var productDetail: ProductDetailResponse?
     var isLoading = false
     var errorMessage: String?
-    var reviewsSummary: ProductReviewsSummary?
     var isSubmittingReview = false
     
-    // AI Özeti State'leri
-    var aiSummary: String?
-    var isFetchingAISummary = false
+    // MARK: - AI Assistant States
+    var chatMessages: [ChatMessage] = []
+    var isAskingQuestion = false
     
     @MainActor
-    func fetchReviews(productId: String) async {
+    func fetchProductDetail(productId: String) async {
         isLoading = true
         errorMessage = nil
         
-        let url = "\(NetworkManager.baseURL)/api/v1/products/\(productId)/reviews"
+        let url = "\(NetworkManager.baseURL)/api/v1/products/\(productId)"
         
         do {
-            let summary: ProductReviewsSummary = try await NetworkManager.shared.request(
+            let response: ProductDetailResponse = try await NetworkManager.shared.request(
                 url: url,
                 method: "GET",
                 body: String?.none,
                 token: nil
             )
-            self.reviewsSummary = summary
+            self.productDetail = response
         } catch let error as APIError {
             self.errorMessage = error.localizedDescription
         } catch {
-            self.errorMessage = "Değerlendirmeler yüklenemedi."
+            self.errorMessage = "Ürün detayları yüklenemedi."
         }
         
         isLoading = false
-    }
-    
-    @MainActor
-    func fetchAISummary(productId: String) async {
-        // Önceki özeti temizle ki butona her basıldığında temiz başlasın
-        self.aiSummary = nil
-        isFetchingAISummary = true
-        
-        let url = "\(NetworkManager.baseURL)/api/v1/products/\(productId)/reviews/ai-summary"
-        
-        do {
-            let response: AISummaryResponse = try await NetworkManager.shared.request(
-                url: url,
-                method: "GET",
-                body: String?.none,
-                token: nil
-            )
-            // Yumuşak bir geçiş için küçük bir gecikme eklenebilir (Opsiyonel)
-            self.aiSummary = response.summary
-        } catch {
-            print("AI Özeti çekilemedi: \(error.localizedDescription)")
-        }
-        
-        isFetchingAISummary = false
     }
     
     @MainActor
@@ -88,9 +64,7 @@ final class ProductDetailViewModel {
                 token: token
             )
             
-            // Yorum başarıyla eklendikten sonra listeyi VE AI özetini yenile
-            await fetchReviews(productId: productId)
-            await fetchAISummary(productId: productId)
+            await fetchProductDetail(productId: productId)
             
             isSubmittingReview = false
             return true
@@ -103,5 +77,33 @@ final class ProductDetailViewModel {
             isSubmittingReview = false
             return false
         }
+    }
+    
+    @MainActor
+    func askQuestion(productId: String, question: String) async {
+        let userMsg = ChatMessage(text: question, isUser: true)
+        chatMessages.append(userMsg)
+        
+        isAskingQuestion = true
+        let url = "\(NetworkManager.baseURL)/api/v1/products/\(productId)/ask"
+        let requestBody = ProductAskRequest(question: question)
+        
+        do {
+            let response: ProductAskResponse = try await NetworkManager.shared.request(
+                url: url,
+                method: "POST",
+                body: requestBody,
+                token: nil
+            )
+            
+            let aiMsg = ChatMessage(text: response.answer, isUser: false)
+            self.chatMessages.append(aiMsg)
+            
+        } catch {
+            let errorMsg = ChatMessage(text: "Üzgünüm, şu an bağlantı kuramıyorum. Lütfen tekrar dene.", isUser: false)
+            self.chatMessages.append(errorMsg)
+        }
+        
+        isAskingQuestion = false
     }
 }

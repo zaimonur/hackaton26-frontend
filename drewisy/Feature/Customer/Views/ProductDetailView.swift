@@ -10,350 +10,411 @@ import SwiftUI
 struct ProductDetailView: View {
     let product: ProductResponse
     
-    @Environment(CartManager.self) private var cartManager
-    @Environment(AppState.self) private var appState
-    
     @State private var viewModel = ProductDetailViewModel()
-    @State private var quantity: Int = 1
+    @Environment(\.dismiss) private var dismiss
     
-    @State private var showAddReviewSheet = false
-    @State private var showLoginAlert = false
+    @State private var isAssistantSheetPresented = false
+    @State private var isPulsing = false
     
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            
-            ScrollView {
+        ScrollView {
+            VStack(spacing: 24) {
+                // 1. HERO SECTION
+                HeroSection
+                
                 VStack(alignment: .leading, spacing: 24) {
-                    HeroSection(product: product)
-                    
-                    VStack(alignment: .leading, spacing: 24) {
-                        DescriptionSection(description: product.description)
-                        
-                        Divider().background(Theme.textSecondary.opacity(0.2))
-
-                        ReviewsSection(
-                            productId: product.id,
-                            viewModel: viewModel,
-                            appState: appState,
-                            showAddReviewSheet: $showAddReviewSheet,
-                            showLoginAlert: $showLoginAlert
-                        )
+                    // 2. AI SUMMARY CARD
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding()
+                    } else if let detail = viewModel.productDetail, !detail.aiSummary.isEmpty {
+                        AISummaryCard(summary: detail.aiSummary)
+                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .padding(.horizontal, Theme.spacing)
+                    
+                    // 3. DESCRIPTION
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Ürün Açıklaması")
+                            .font(.headline)
+                        Text(viewModel.productDetail?.description ?? product.description)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(4)
+                    }
+                    
+                    // 4. RECENT REVIEWS
+                    if let reviews = viewModel.productDetail?.recentReviews, !reviews.isEmpty {
+                        VStack(alignment: .leading, spacing: Theme.spacing) {
+                            Text("Son Değerlendirmeler")
+                                .font(.headline)
+                            
+                            ForEach(reviews, id: \.id) { review in
+                                ReviewRow(review: review)
+                            }
+                        }
+                    }
+                    
+                    Color.clear.frame(height: 80)
                 }
-                .padding(.bottom, 100)
+                .padding(.horizontal, Theme.spacing)
             }
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom) {
-            BottomActionBar(product: product, quantity: $quantity) {
-                cartManager.addToCart(product: product, quantity: quantity)
-            }
-        }
+        .ignoresSafeArea(edges: .top)
+        .overlay(alignment: .topLeading) { BackButton }
+        .safeAreaInset(edge: .bottom) { BottomActionBar }
+        // DÜZELTME: Modifier'lar doğru bir şekilde ScrollView'a eklendi
+        .overlay(alignment: .bottomTrailing) {
+             AIFloatingActionButton
+                 .padding(.trailing, Theme.spacing)
+                 .padding(.bottom, 90)
+         }
+         .sheet(isPresented: $isAssistantSheetPresented) {
+             ProductAIAssistantSheet(viewModel: viewModel, productId: product.id)
+         }
         .task {
-            // Sadece yorumlar çekilir, AI özeti butona basılınca çekilecek
-            await viewModel.fetchReviews(productId: product.id)
+            await viewModel.fetchProductDetail(productId: product.id)
         }
-        .sheet(isPresented: $showAddReviewSheet) {
-            AddReviewView(productId: product.id, viewModel: viewModel)
-        }
-        .alert("Giriş Gerekli", isPresented: $showLoginAlert) {
+        .alert("Hata", isPresented: Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { _ in viewModel.errorMessage = nil }
+        )) {
             Button("Tamam", role: .cancel) { }
         } message: {
-            Text("Değerlendirme yapabilmek için lütfen hesabınıza giriş yapın.")
+            Text(viewModel.errorMessage ?? "")
         }
     }
 }
 
-// MARK: - Sub-components
-
-fileprivate struct HeroSection: View {
-    let product: ProductResponse
+// MARK: - Subviews
+extension ProductDetailView {
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            AsyncImage(url: URL(string: NetworkManager.baseURL + product.image_path)) { phase in
-                switch phase {
-                case .empty:
-                    Theme.surface
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                case .failure(_):
-                    Theme.surface.overlay(Image(systemName: "photo").foregroundColor(Theme.textSecondary))
-                @unknown default:
-                    EmptyView()
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 350)
-            .clipped()
-            .background(Theme.surface)
+    // DÜZELTME: Silinen HeroSection geri eklendi
+    var HeroSection: some View {
+        GeometryReader { geometry in
+            let minY = geometry.frame(in: .global).minY
+            let height = geometry.size.height + (minY > 0 ? minY : 0)
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text(product.title)
-                    .font(.title.bold())
-                    .foregroundColor(Theme.textPrimary)
-                
-                HStack {
-                    Text(product.store_name)
-                        .font(Theme.bodyFont)
-                        .foregroundColor(Theme.primary)
-                    Text("•")
-                    Text(product.category)
-                        .font(Theme.bodyFont)
-                        .foregroundColor(Theme.textSecondary)
-                }
-                
-                Text("\(product.price, specifier: "%.2f") ₺")
-                    .font(.system(size: 28, weight: .black))
-                    .foregroundColor(Theme.primary)
-                    .padding(.top, 4)
-            }
-            .padding(.horizontal, Theme.spacing)
-        }
-    }
-}
-
-fileprivate struct DescriptionSection: View {
-    let description: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Ürün Açıklaması")
-                .font(Theme.titleFont)
-                .foregroundColor(Theme.textPrimary)
-            
-            Text(description)
-                .font(Theme.bodyFont)
-                .foregroundColor(Theme.textSecondary)
-                .lineSpacing(4)
-        }
-    }
-}
-
-fileprivate struct ReviewsSection: View {
-    let productId: String
-    var viewModel: ProductDetailViewModel
-    var appState: AppState
-    @Binding var showAddReviewSheet: Bool
-    @Binding var showLoginAlert: Bool
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            headerView
-            aiAssistantModule
-            commentsListView
-        }
-    }
-    
-    @ViewBuilder
-    private var aiAssistantModule: some View {
-        if let aiSummary = viewModel.aiSummary {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Image(systemName: "sparkles")
-                    Text("Yapay Zeka Analizi")
-                }
-                .font(Theme.bodyFont.bold())
-                .foregroundColor(.purple)
-                
-                Text(aiSummary)
-                    .font(Theme.captionFont)
-                    .foregroundColor(Theme.textPrimary)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.purple.opacity(0.08))
-            .cornerRadius(Theme.cornerRadius)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                    .stroke(Color.purple.opacity(0.2), lineWidth: 1)
-            )
-            .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .top)), removal: .opacity))
-        } else if viewModel.isFetchingAISummary {
-            HStack(spacing: 12) {
-                ProgressView()
-                    .tint(.purple)
-                Text("Yapay Zeka Yorumları Okuyor...")
-                    .font(Theme.captionFont)
-                    .foregroundColor(.purple)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Theme.surface)
-            .cornerRadius(Theme.cornerRadius)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                    .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-            )
-        } else {
-            Button {
-                Task {
-                        await viewModel.fetchAISummary(productId: productId)
+            ZKeyStack {
+                Group {
+                    if let gallery = viewModel.productDetail?.gallery, !gallery.isEmpty {
+                        TabView {
+                            ForEach(gallery, id: \.self) { url in
+                                AsyncImage(url: URL(string: url)) { image in
+                                    image.resizable().aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Color.gray.opacity(0.1)
+                                }
+                            }
+                        }
+                        .tabViewStyle(.page)
+                    } else {
+                        AsyncImage(url: URL(string: product.image_path)) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(Color.gray.opacity(0.1))
+                        }
                     }
-            } label: {
-                HStack {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 18))
-                    Text("Yapay Zeka'dan Yorum Özeti İste")
-                        .font(Theme.bodyFont.bold())
                 }
-                .animation(.spring(), value: viewModel.isFetchingAISummary)
-                .animation(.spring(), value: viewModel.aiSummary)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(
-                    LinearGradient(
-                        colors: [Color.purple, Color.indigo],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                .frame(width: geometry.size.width, height: height)
+                .clipped()
+                .offset(y: minY > 0 ? -minY : 0)
+                .animation(.smooth, value: viewModel.productDetail?.gallery)
+                
+                VStack {
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(product.title)
+                            .font(.title2.bold())
+                        Text(String(format: "%.2f TL", product.price))
+                            .font(.title3).fontWeight(.semibold)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Theme.spacing)
+                    .background(
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.8)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
-                )
-                .cornerRadius(Theme.cornerRadius)
-                .shadow(color: Color.purple.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+                .offset(y: minY > 0 ? -minY : 0)
             }
-        }
-    }
-    
-    private var headerView: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Değerlendirmeler")
-                    .font(Theme.titleFont)
-                    .foregroundColor(Theme.textPrimary)
-                
-                if let summary = viewModel.reviewsSummary {
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill").foregroundColor(.yellow)
-                        Text(String(format: "%.1f", summary.average_rating)).bold()
-                        Text("(\(summary.total_reviews))").foregroundColor(Theme.textSecondary)
-                    }
-                    .font(Theme.captionFont)
+            .overlay(alignment: .topTrailing) {
+                if let badge = viewModel.productDetail?.aiSentimentBadge {
+                    Text("✨ \(badge)")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .padding(.top, 60)
+                        .padding(.trailing, Theme.spacing)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
+        }
+        .frame(height: UIScreen.main.bounds.height * 0.5)
+    }
+    
+    // DÜZELTME: Silinen AISummaryCard geri eklendi
+    func AISummaryCard(summary: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Akıllı Özet", systemImage: "sparkles")
+                .font(.headline)
+                .foregroundStyle(Theme.textSecondary)
+            
+            Text(summary)
+                .font(.subheadline)
+                .foregroundStyle(.primary.opacity(0.9))
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                .fill(Theme.textSecondary.opacity(0.1))
+                .background(.ultraThinMaterial)
+        )
+    }
+    
+    // DÜZELTME: Silinen BottomActionBar geri eklendi
+    var BottomActionBar: some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text("Toplam")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(String(format: "%.2f TL", product.price))
+                    .font(.headline)
+            }
+            
             Spacer()
+            
             Button {
-                if appState.isAuthenticated { showAddReviewSheet = true }
-                else { showLoginAlert = true }
+                // Sepete ekleme aksiyonu
             } label: {
-                Label("Yorum Yap", systemImage: "square.and.pencil")
-                    .font(Theme.captionFont.bold())
-                    .foregroundColor(Theme.primary)
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(Theme.primary.opacity(0.1))
-                    .cornerRadius(16)
+                Text("Sepete Ekle")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(width: 160, height: 50)
+                    .background(Theme.primary)
+                    .clipShape(Capsule())
             }
+        }
+        .padding(.horizontal, Theme.spacing)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+    }
+    
+    // DÜZELTME: Silinen BackButton geri eklendi
+    var BackButton: some View {
+        Button { dismiss() } label: {
+            Image(systemName: "chevron.left")
+                .font(.title3.bold())
+                .padding(10)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+        }
+        .padding(.top, 60)
+        .padding(.leading, Theme.spacing)
+    }
+    
+    var AIFloatingActionButton: some View {
+        Button {
+            isAssistantSheetPresented = true
+        } label: {
+            Image(systemName: "sparkles.tv")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .padding(16)
+                .background(
+                    Circle()
+                        .fill(Theme.textSecondary)
+                        .shadow(color: Theme.textSecondary.opacity(0.4), radius: 8, x: 0, y: 4)
+                )
+                .scaleEffect(isPulsing ? 1.1 : 1.0)
+                .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: isPulsing)
+        }
+        .onAppear { isPulsing = true }
+    }
+}
+
+// MARK: - AI Assistant Bottom Sheet
+struct ProductAIAssistantSheet: View {
+    @Bindable var viewModel: ProductDetailViewModel
+    let productId: String
+    
+    @State private var inputText: String = ""
+    @FocusState private var isInputFocused: Bool
+    @State private var sheetDetent: PresentationDetent = .fraction(0.4)
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("✨ Ürün Asistanına Sor")
+                .font(.headline.bold())
+                .padding(.vertical, Theme.spacing)
+            
+            Divider()
+            
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: Theme.spacing) {
+                        if viewModel.chatMessages.isEmpty {
+                            Text("Bu ürün hakkında ne öğrenmek istersin?")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 24)
+                        }
+                        
+                        ForEach(viewModel.chatMessages) { message in
+                            ChatBubble(message: message)
+                                .id(message.id)
+                        }
+                        
+                        if viewModel.isAskingQuestion {
+                            HStack {
+                                ProgressView()
+                                    .padding()
+                                    .background(Color.indigo.opacity(0.1)) // Theme.Colors yerine doğrudan renk
+                                    .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .id("loading")
+                        }
+                    }
+                    .padding(.vertical)
+                }
+                .onChange(of: viewModel.chatMessages.count) {
+                    scrollToBottom(proxy: proxy)
+                }
+                .onChange(of: viewModel.isAskingQuestion) {
+                    scrollToBottom(proxy: proxy)
+                }
+            }
+            
+            HStack {
+                TextField("Ürün hakkında sor...", text: $inputText)
+                    .focused($isInputFocused)
+                    .padding(12)
+                    .background(Color(uiColor: .systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .onSubmit { sendMessage() }
+                
+                Button {
+                    sendMessage()
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(inputText.trimmingCharacters(in: .whitespaces).isEmpty ? .gray : Theme.primary)
+                }
+                .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isAskingQuestion)
+            }
+            .padding()
+            .background(.ultraThinMaterial)
+        }
+        .onChange(of: isInputFocused) { _, isFocused in
+            if isFocused {
+                sheetDetent = .large
+            }
+        }
+        .presentationDetents([.fraction(0.4), .large], selection: $sheetDetent)
+        .presentationCornerRadius(24)
+        .presentationDragIndicator(.visible)
+    }
+    
+    private func sendMessage() {
+        let text = inputText.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return }
+        inputText = ""
+        
+        Task {
+            await viewModel.askQuestion(productId: productId, question: text)
         }
     }
     
-    private var commentsListView: some View {
-        Group {
-            if viewModel.isLoading {
-                ProgressView().tint(Theme.primary).frame(maxWidth: .infinity).padding()
-            } else if let summary = viewModel.reviewsSummary, !summary.reviews.isEmpty {
-                ForEach(summary.reviews) { review in
-                    ReviewCard(review: review)
-                }
-            } else {
-                Text("Henüz değerlendirme yapılmamış.")
-                    .font(Theme.captionFont)
-                    .foregroundColor(Theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
+    private func scrollToBottom(proxy: ScrollViewProxy) {
+        withAnimation {
+            if viewModel.isAskingQuestion {
+                proxy.scrollTo("loading", anchor: .bottom)
+            } else if let lastId = viewModel.chatMessages.last?.id {
+                proxy.scrollTo(lastId, anchor: .bottom)
             }
         }
     }
 }
 
-fileprivate struct ReviewCard: View {
+// MARK: - Chat Bubble View
+struct ChatBubble: View {
+    let message: ChatMessage
+    
+    var body: some View {
+        HStack {
+            if message.isUser { Spacer(minLength: 40) }
+            
+            Text(message.text)
+                .font(.subheadline)
+                .padding(12)
+                .background(bubbleBackground)
+                .foregroundStyle(bubbleForeground)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+            
+            if !message.isUser { Spacer(minLength: 40) }
+        }
+        .padding(.horizontal, Theme.spacing)
+        // Karmaşık transition'ı parçaladık
+        .transition(.asymmetric(
+            insertion: .move(edge: message.isUser ? .trailing : .leading).combined(with: .opacity),
+            removal: .opacity
+        ))
+    }
+    
+    // Renk mantığını dışarı aldık (Derleyici artık çok daha hızlı)
+    private var bubbleBackground: Color {
+        if message.isUser {
+            return Theme.primary
+        } else {
+            return Color.indigo.opacity(0.15)
+        }
+    }
+    
+    private var bubbleForeground: Color {
+        message.isUser ? .white : .primary
+    }
+}
+
+// Yardımcı View: Yorum Satırı
+struct ReviewRow: View {
     let review: ReviewResponse
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(review.user_email)
-                    .font(Theme.captionFont.bold())
+                    .font(.subheadline.bold())
                 Spacer()
-                Text(review.created_at)
-                    .font(.system(size: 10))
-                    .foregroundColor(Theme.textSecondary)
-            }
-            
-            HStack(spacing: 2) {
-                ForEach(0..<5) { index in
-                    Image(systemName: index < review.rating ? "star.fill" : "star")
-                        .foregroundColor(.yellow)
-                        .font(.system(size: 10))
+                HStack(spacing: 2) {
+                    ForEach(0..<5) { index in
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(index < review.rating ? .yellow : .gray.opacity(0.3))
+                    }
                 }
             }
-            
             Text(review.comment)
-                .font(Theme.captionFont)
-                .foregroundColor(Theme.textSecondary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Divider().padding(.top, 4)
         }
-        .padding()
-        .background(Theme.surface)
-        .cornerRadius(Theme.cornerRadius)
     }
 }
 
-fileprivate struct BottomActionBar: View {
-    let product: ProductResponse
-    @Binding var quantity: Int
-    let onAdd: () -> Void
-    
+// Custom Container to simplify ZStack logic
+struct ZKeyStack<Content: View>: View {
+    @ViewBuilder var content: Content
     var body: some View {
-        VStack {
-            HStack(spacing: 16) {
-                HStack(spacing: 12) {
-                    Button(action: { if quantity > 1 { quantity -= 1 } }) {
-                        Image(systemName: "minus")
-                            .frame(width: 32, height: 32)
-                            .background(Theme.background)
-                            .clipShape(Circle())
-                    }
-                    
-                    Text("\(quantity)")
-                        .font(Theme.bodyFont.bold())
-                        .frame(minWidth: 24)
-                    
-                    Button(action: { quantity += 1 }) {
-                        Image(systemName: "plus")
-                            .frame(width: 32, height: 32)
-                            .background(Theme.background)
-                            .clipShape(Circle())
-                    }
-                }
-                .padding(8)
-                .background(Theme.surface)
-                .cornerRadius(24)
-                
-                Button(action: {
-                    let impact = UIImpactFeedbackGenerator(style: .medium)
-                    impact.impactOccurred()
-                    onAdd()
-                }) {
-                    Text("Sepete Ekle")
-                        .font(Theme.bodyFont.bold())
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Theme.primary)
-                        .cornerRadius(Theme.cornerRadius)
-                }
-            }
-            .padding(Theme.spacing)
-            .background(.ultraThinMaterial)
-            .overlay(
-                Rectangle()
-                    .frame(height: Theme.borderWidth)
-                    .foregroundColor(Theme.textSecondary.opacity(0.1)),
-                alignment: .top
-            )
-        }
+        ZStack { content }
     }
 }

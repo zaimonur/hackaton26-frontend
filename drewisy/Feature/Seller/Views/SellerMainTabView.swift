@@ -10,26 +10,25 @@ import SwiftUI
 struct SellerMainTabView: View {
     var body: some View {
         TabView {
-            // Sipariş Yönetimi Modülü
             SellerOrdersView()
-                .tabItem {
-                    Label("Siparişler", systemImage: "shippingbox.fill")
-                }
+                .tabItem { Label("Siparişler", systemImage: "shippingbox.fill") }
 
-            SellerDashboardView()
-                .tabItem {
-                    Label("Panel", systemImage: "chart.bar.fill")
-                }
+            PanelRootView()
+                .tabItem { Label("Panel", systemImage: "square.grid.2x2.fill") }
                 
-            MyProductsView()
-                .tabItem {
-                    Label("Ürünlerim", systemImage: "bag.fill")
-                }
+            // MARK: - Dummy Views
+            Text("Mesajlar Hazırlanıyor...")
+                .font(Theme.titleFont)
+                .foregroundColor(Theme.textSecondary)
+                .tabItem { Label("Mesajlar", systemImage: "message.fill") }
+                
+            Text("Bildirimler Hazırlanıyor...")
+                .font(Theme.titleFont)
+                .foregroundColor(Theme.textSecondary)
+                .tabItem { Label("Bildirimler", systemImage: "bell.fill") }
                 
             ProfileSettingsView()
-                .tabItem {
-                    Label("Profil", systemImage: "person.fill")
-                }
+                .tabItem { Label("Profil", systemImage: "person.fill") }
         }
         .tint(Theme.primary)
     }

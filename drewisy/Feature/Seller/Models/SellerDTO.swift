@@ -27,6 +27,8 @@ struct ProductResponse: Decodable, Identifiable, Hashable, Equatable {
     let price: Double
     let category: String
     let image_path: String
+    let gallery: [String] // EKLENDİ: Çoklu galeri yapısı
+    let stock: Int
 }
 
 // AI Entegrasyon Modelleri
@@ -38,6 +40,10 @@ struct GenerateDescriptionRequest: Encodable {
 
 struct GenerateDescriptionResponse: Decodable {
     let generated_description: String
+}
+
+struct AIDashboardSummaryResponse: Decodable {
+    let summary: String
 }
 
 struct SellerOrderItem: Decodable, Hashable {
@@ -68,4 +74,40 @@ struct SellerOrderResponse: Decodable, Identifiable, Hashable {
 
 struct UpdateOrderStatusRequest: Encodable {
     let status: String
+}
+
+// MARK: - Dashboard İstatistik Modelleri
+
+struct CategoryStat: Decodable, Identifiable, Hashable {
+    let category: String
+    let sales_count: Int
+    let revenue: Double
+    
+    var id: String { category }
+}
+
+struct ProductSalesStat: Decodable, Identifiable, Hashable {
+    let product_id: String
+    let title: String
+    let image_path: String
+    let category: String
+    let sales_count: Int
+    let revenue: Double
+    
+    var id: String { product_id }
+}
+
+struct SalesDashboardResponse: Decodable, Hashable {
+    let total_revenue: Double
+    let successful_orders: Int
+    let average_order_value: Double
+    let cancelled_orders: Int
+    let cancelled_revenue: Double
+    let category_sales: [CategoryStat]
+    let product_sales: [ProductSalesStat]
+}
+
+struct UpdateProductRequest: Encodable {
+    let price: Double
+    let stock: Int
 }

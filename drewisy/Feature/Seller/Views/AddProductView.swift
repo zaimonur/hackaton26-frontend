@@ -33,6 +33,12 @@ struct AddProductView: View {
             .navigationTitle("Yeni Ürün Stüdyosu")
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) { stickyPublishButton }
+            .task {
+                // Sayfa açıldığında kategorileri çek
+                if viewModel.availableCategories.isEmpty {
+                    await viewModel.fetchCategories()
+                }
+            }
             .alert("Durum", isPresented: $viewModel.showAlert) {
                 Button("Tamam", role: .cancel) {
                     if viewModel.alertMessage?.contains("eklendi") == true {
@@ -55,7 +61,6 @@ struct AddProductView: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    // Ekleme Butonu
                     if viewModel.selectedItems.count < 5 {
                         PhotosPicker(selection: $viewModel.selectedItems, maxSelectionCount: 5, matching: .images) {
                             VStack(spacing: 8) {
@@ -73,7 +78,6 @@ struct AddProductView: View {
                         }
                     }
                     
-                    // Seçilen Görseller (Galeri)
                     ForEach(Array(viewModel.selectedImagesData.enumerated()), id: \.offset) { index, data in
                         if let uiImage = UIImage(data: data) {
                             ZStack(alignment: .topTrailing) {
@@ -83,7 +87,6 @@ struct AddProductView: View {
                                     .frame(width: 100, height: 130)
                                     .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
                                 
-                                // Kapak Rozeti
                                 if index == 0 {
                                     Text("KAPAK")
                                         .font(.system(size: 10, weight: .bold))
@@ -96,7 +99,6 @@ struct AddProductView: View {
                                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                                 }
                                 
-                                // Silme Butonu
                                 Button {
                                     withAnimation { viewModel.removeImage(at: index) }
                                 } label: {
@@ -116,8 +118,46 @@ struct AddProductView: View {
     private var infoSection: some View {
         VStack(spacing: 16) {
             customTextField(placeholder: "Ürün Adı", text: $viewModel.title)
-            customTextField(placeholder: "Kategori (Örn: Giyim)", text: $viewModel.category)
-            customTextField(placeholder: "Fiyat (₺)", text: $viewModel.price, keyboardType: .decimalPad)
+            
+            // EKLENDİ: Dinamik Kategori Picker
+            if viewModel.availableCategories.isEmpty {
+                HStack {
+                    Text("Kategoriler Yükleniyor...")
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                    ProgressView().tint(Theme.primary)
+                }
+                .padding()
+                .frame(height: Theme.inputHeight)
+                .background(Theme.background)
+                .cornerRadius(Theme.cornerRadius)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.textSecondary.opacity(0.2), lineWidth: 1))
+            } else {
+                HStack {
+                    Text("Kategori")
+                        .foregroundColor(Theme.textSecondary)
+                    Spacer()
+                    Picker("", selection: $viewModel.category) {
+                        ForEach(viewModel.availableCategories, id: \.self) { cat in
+                            Text(cat).tag(cat)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(Theme.textPrimary)
+                }
+                .padding(.leading) // Picker'ın kendi trailing padding'i var
+                .frame(height: Theme.inputHeight)
+                .background(Theme.background)
+                .cornerRadius(Theme.cornerRadius)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.textSecondary.opacity(0.2), lineWidth: 1))
+            }
+            
+            // EKLENDİ: Fiyat ve Stok Yan Yana
+            HStack(spacing: 16) {
+                customTextField(placeholder: "Fiyat (₺)", text: $viewModel.price, keyboardType: .decimalPad)
+                customTextField(placeholder: "Stok Adedi", text: $viewModel.stock, keyboardType: .numberPad)
+            }
+            
             customTextField(placeholder: "Anahtar Kelimeler (Kışlık, Dar vb.)", text: $viewModel.keywords)
         }
         .padding(Theme.spacing)

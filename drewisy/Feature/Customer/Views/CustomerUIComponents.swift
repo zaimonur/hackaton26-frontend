@@ -15,17 +15,22 @@ struct PremiumProductCardView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // 1. GÖRSEL ALANI (SABİT)
+            // 1. GÖRSEL ALANI (HAPİSHANE MİMARİSİ)
             ZStack(alignment: .topLeading) {
-                AsyncImage(url: URL(string: NetworkManager.baseURL + product.image_path)) { phase in
-                    if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } else {
-                        Rectangle().fill(Theme.surface)
-                    }
-                }
-                .frame(height: isCompact ? 120 : 160) // Görsel yüksekliği netleştirildi
-                .clipped()
+                // Layout motoru SADECE bu şeffaf kutuyu görür. Boyutlandırmayı bu belirler.
+                Color.clear
+                    .frame(height: isCompact ? 130 : 160)
+                    .overlay(
+                        // Gerçek görsel sadece kutunun üstüne çizilir, kutuyu fiziksel olarak itemez.
+                        AsyncImage(url: URL(string: NetworkManager.baseURL + product.image_path)) { phase in
+                            if let image = phase.image {
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } else {
+                                Rectangle().fill(Theme.surface)
+                            }
+                        }
+                    )
+                    .clipped() // Şeffaf kutudan taşan görseli acımasızca keser
                 
                 if let badge = product.aiSentimentBadge {
                     Text("✨ \(badge)")
@@ -41,20 +46,27 @@ struct PremiumProductCardView: View {
                     .font(Theme.bodyFont.bold())
                     .foregroundColor(Theme.textPrimary)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 
                 Text(product.category)
                     .font(Theme.captionFont)
                     .foregroundColor(Theme.textSecondary)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 
-                // İçerik az olsa bile butonları aşağı iten sihirli boşluk
                 Spacer(minLength: 0)
                 
                 HStack {
                     Text("\(product.price, specifier: "%.2f") ₺")
                         .font(Theme.bodyFont.bold())
                         .foregroundColor(Theme.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    
                     Spacer()
+                    
                     Button(action: onAddTapped) {
                         Image(systemName: "plus").font(.system(size: 14, weight: .bold))
                             .foregroundColor(.white).frame(width: 28, height: 28)
@@ -63,9 +75,10 @@ struct PremiumProductCardView: View {
                 }
             }
             .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        // HARD FRAME: Esnekliği tamamen öldüren askeri simetri sınırı
-        .frame(height: isCompact ? 225 : 280)
+        .frame(maxWidth: .infinity)
+        .frame(height: isCompact ? 225 : 280) // KARTIN BOYU BETON GİBİ SABİT
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.textSecondary.opacity(0.1), lineWidth: 1))
@@ -208,14 +221,14 @@ struct ProductSwimlaneView: View {
                 .padding(.horizontal, Theme.spacing)
             
             ScrollView(.horizontal, showsIndicators: false) {
-                // NEFES ALAN ARAYÜZ: Boşluk 20'den 24'e çıkarıldı.
-                LazyHStack(spacing: 24) {
+                LazyHStack(spacing: 16) {
                     ForEach(products) { product in
                         NavigationLink(value: product) {
                             PremiumProductCardView(product: product, isCompact: true) {
                                 onAddTapped(product)
                             }
-                            .frame(width: UIScreen.main.bounds.width * 0.38)
+                            // YATAY LİSTEDE KART GENİŞLİĞİ BETON GİBİ SABİTLENDİ
+                            .frame(width: 160)
                         }
                         .buttonStyle(.plain)
                     }

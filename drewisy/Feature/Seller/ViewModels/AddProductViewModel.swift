@@ -20,8 +20,10 @@ final class AddProductViewModel {
     var price = ""
     var category = ""
     var keywords = ""
+    var stock = ""
     
-    // EKLENDİ: Çoklu görsel yönetimi
+    var availableCategories: [String] = []
+    
     var selectedItems: [PhotosPickerItem] = [] {
         didSet {
             Task { await loadTransferables(from: selectedItems) }
@@ -35,11 +37,42 @@ final class AddProductViewModel {
     var alertMessage: String?
     var showAlert = false
     
+    // MARK: - API Calls
+    
+    @MainActor
+    func fetchCategories() async {
+        do {
+            let fetchedCategories: [String] = try await NetworkManager.shared.request(
+                url: "\(NetworkManager.baseURL)/api/v1/categories",
+                body: String?.none,
+                token: nil
+            )
+            self.availableCategories = fetchedCategories
+            
+            // Eğer kategori seçilmemişse ve liste boş değilse ilkini varsayılan yap
+            if self.category.isEmpty, let firstCategory = fetchedCategories.first {
+                self.category = firstCategory
+            }
+        } catch {
+            print("Kategoriler çekilemedi: \(error.localizedDescription)")
+            // UX kararı: Kategori çekilemezse upload zaten patlayacağı için sessizce logluyoruz,
+            // dilersek alert de fırlatabiliriz.
+        }
+    }
+    
     @MainActor
     func uploadProduct(token: String?) async {
         guard let token else { return }
-        guard !title.isEmpty, !price.isEmpty, !category.isEmpty, !selectedImagesData.isEmpty else {
+        
+        // Form Doğrulama
+        guard !title.isEmpty, !price.isEmpty, !category.isEmpty, !stock.isEmpty, !selectedImagesData.isEmpty else {
             alertMessage = "Lütfen en az bir görsel dahil tüm zorunlu alanları doldurun."
+            showAlert = true
+            return
+        }
+        
+        guard Int(stock) != nil else {
+            alertMessage = "Stok adedi geçerli bir tam sayı olmalıdır."
             showAlert = true
             return
         }
@@ -47,12 +80,19 @@ final class AddProductViewModel {
         isLoading = true
         
         let formattedPrice = price.replacingOccurrences(of: ",", with: ".")
-        let fields = ["title": title, "description": description, "price": formattedPrice, "category": category]
+        
+        // Multipart form-data text alanları (Tümü String olmak zorundadır, backend parse eder)
+        let fields = [
+            "title": title,
+            "description": description,
+            "price": formattedPrice,
+            "category": category,
+            "stock": stock
+        ]
         
         do {
-            // Çoklu dosya yükleme servisi çağrısı
             let _: DummyProductResponse = try await NetworkManager.shared.uploadMultipartImages(
-                url: "http://localhost:8080/api/v1/products",
+                url: "\(NetworkManager.baseURL)/api/v1/products",
                 fields: fields,
                 filesData: selectedImagesData,
                 fileField: "images",
@@ -86,7 +126,7 @@ final class AddProductViewModel {
         
         do {
             let response: GenerateDescriptionResponse = try await NetworkManager.shared.request(
-                url: "http://localhost:8080/api/v1/ai/generate-description",
+                url: "\(NetworkManager.baseURL)/api/v1/ai/generate-description",
                 method: "POST",
                 body: req,
                 token: token
@@ -103,7 +143,8 @@ final class AddProductViewModel {
         isGeneratingAI = false
     }
     
-    // EKLENDİ: Birden fazla fotoğrafı işleyen yeni metod
+    // MARK: - Helpers
+    
     private func loadTransferables(from items: [PhotosPickerItem]) async {
         var newImagesData: [Data] = []
         
@@ -133,7 +174,8 @@ final class AddProductViewModel {
         title = ""
         description = ""
         price = ""
-        category = ""
+        stock = ""
+        // category'i temizlemiyoruz, varsayılan kalabilir.
         keywords = ""
         selectedItems.removeAll()
         selectedImagesData.removeAll()

@@ -10,7 +10,15 @@ import Observation
 
 @Observable
 final class CustomerCatalogViewModel {
+    // MARK: - State Properties
     var products: [ProductResponse] = []
+    
+    // YENİ: Anasayfa Koleksiyonları
+    var bestsellers: [ProductResponse] = []
+    var categories: [String] = []
+    var history: [ProductResponse] = []
+    var aiRecommendation: AIRecommendationResponse? = nil
+    
     var isLoading = false
     var errorMessage: String?
     
@@ -18,10 +26,47 @@ final class CustomerCatalogViewModel {
     var searchText = ""
     var isAIEnabled = false
     
+    // Debouncing için referans task
+    private var searchTask: Task<Void, Never>?
+    
+    // MARK: - API Calls (Paralel Yükleme)
+    
+    @MainActor
+        func fetchHomePageData(token: String?) async {
+            isLoading = true
+            // Alert fırlatmasını tamamen engellemek için errorMessage'ı set etmiyoruz.
+            
+            // 1. Kategoriler (Fail-Safe)
+            do {
+                categories = try await NetworkManager.shared.request(url: "\(NetworkManager.baseURL)/api/v1/categories", body: String?.none, token: nil)
+            } catch { print("Kategori çekilemedi: \(error)") }
+            
+            // 2. Çok Satanlar (Fail-Safe)
+            do {
+                bestsellers = try await NetworkManager.shared.request(url: "\(NetworkManager.baseURL)/api/v1/products/bestsellers", body: String?.none, token: nil)
+            } catch { print("Bestsellers çekilemedi: \(error)") }
+            
+            // Auth Gerektirenler
+            if let token = token {
+                // 3. Geçmiş (Fail-Safe)
+                do {
+                    history = try await NetworkManager.shared.request(url: "\(NetworkManager.baseURL)/api/v1/users/history", body: String?.none, token: token)
+                } catch { print("History çekilemedi: \(error)") }
+                
+                // 4. AI Vitrini (Fail-Safe - Patlarsa sayfayı bozmaz, sadece banner çıkmaz)
+                do {
+                    aiRecommendation = try await NetworkManager.shared.request(url: "\(NetworkManager.baseURL)/api/v1/ai/recommendations", body: String?.none, token: token)
+                } catch {
+                    print("🤖 AI Recommendation patladı, sessizce yutuldu: \(error)")
+                    aiRecommendation = nil
+                }
+            }
+            
+            isLoading = false
+        }
+    
     @MainActor
     func loadProducts() async {
-        isLoading = true
-        errorMessage = nil
         do {
             products = try await NetworkManager.shared.request(
                 url: "\(NetworkManager.baseURL)/api/v1/products",
@@ -33,23 +78,43 @@ final class CustomerCatalogViewModel {
         } catch {
             errorMessage = "Ürünler yüklenemedi."
         }
-        isLoading = false
     }
     
+    // MARK: - Arama (Debounced)
+    
     @MainActor
-    func searchProducts() async {
-        // Metin boşsa ana kataloğa dön (Empty State Yönetimi)
+    func searchWithDebounce() {
+        // Eski aramayı iptal et
+        searchTask?.cancel()
+        
         guard !searchText.isEmpty else {
-            await loadProducts()
+            Task { await loadProducts() }
             return
         }
         
         isLoading = true
         errorMessage = nil
         
+        searchTask = Task {
+            do {
+                // 500ms Debounce beklemesi (Cancellation tetiklenebilir)
+                try await Task.sleep(nanoseconds: 500_000_000)
+                
+                // Task iptal edildiyse işlemi kes
+                guard !Task.isCancelled else { return }
+                
+                await executeSearch()
+                
+            } catch {
+                // Task.sleep iptal edildiğinde fırlatılan hatayı yut
+            }
+        }
+    }
+    
+    @MainActor
+    private func executeSearch() async {
         do {
             if isAIEnabled {
-                // AI Destekli Arama (POST)
                 let req = SmartSearchRequest(query: searchText)
                 let response: SmartSearchResponse = try await NetworkManager.shared.request(
                     url: "\(NetworkManager.baseURL)/api/v1/ai/search",
@@ -59,7 +124,6 @@ final class CustomerCatalogViewModel {
                 )
                 products = response.products
             } else {
-                // Standart Arama (GET - URL Safe)
                 var components = URLComponents(string: "\(NetworkManager.baseURL)/api/v1/products")
                 components?.queryItems = [URLQueryItem(name: "q", value: searchText)]
                 
@@ -73,10 +137,32 @@ final class CustomerCatalogViewModel {
             }
         } catch let error as APIError {
             errorMessage = error.localizedDescription
-            products = [] // Hata durumunda listeyi temizle
+            products = []
         } catch {
-            errorMessage = "Arama sırasında bir hata oluştu."
+            errorMessage = "Arama sırasında hata oluştu."
+            products = []
         }
         isLoading = false
+    }
+    
+    // MARK: - Geçmiş (History) Kaydı
+    
+    @MainActor
+    func recordHistory(productId: String, token: String?) async {
+        guard let token = token else { return }
+        
+        let requestBody = HistoryRequest(product_id: productId)
+        do {
+            // Sadece backend'e kayıt atıyoruz, response body önemli değil (örneğin başarı için String dönebilir)
+            let _: String? = try await NetworkManager.shared.request(
+                url: "\(NetworkManager.baseURL)/api/v1/users/history",
+                method: "POST",
+                body: requestBody,
+                token: token
+            )
+        } catch {
+            // Silently fail: Arayüz akışını bölmemek için geçmiş ekleme hatalarını kullanıcıya yansıtmıyoruz.
+            print("History record error: \(error.localizedDescription)")
+        }
     }
 }

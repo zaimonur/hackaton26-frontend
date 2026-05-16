@@ -8,7 +8,9 @@
 import SwiftUI
 
 struct CustomerCatalogView: View {
+    // MARK: - Dependencies
     @Environment(CartManager.self) private var cartManager
+    @Environment(AppState.self) private var appState
     @State private var viewModel = CustomerCatalogViewModel()
     @Binding var selectedTab: Int
     
@@ -22,190 +24,180 @@ struct CustomerCatalogView: View {
             ZStack {
                 Theme.background.ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    searchBarSection
-                        .padding(.horizontal, Theme.spacing)
-                        .padding(.vertical, 8)
-                    
-                    if viewModel.isLoading {
-                        Spacer()
-                        ProgressView().tint(viewModel.isAIEnabled ? .purple : Theme.primary)
-                        Spacer()
-                    } else if let error = viewModel.errorMessage {
-                        VStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle").foregroundColor(.red)
-                            Text(error).font(Theme.bodyFont).foregroundColor(Theme.textSecondary)
-                        }.padding(.top, 40)
-                        Spacer()
-                    } else {
-                        ScrollView {
-                            LazyVGrid(columns: columns, spacing: Theme.spacing) {
-                                ForEach(viewModel.products) { product in
-                                    // Modern Navigasyon Bağlantısı
-                                    NavigationLink(value: product) {
-                                        productCard(for: product)
+                ScrollView {
+                    VStack(spacing: 24) {
+                        headerAndSearchSection
+                        
+                        if viewModel.isLoading && viewModel.products.isEmpty {
+                            Spacer()
+                            ProgressView().tint(viewModel.isAIEnabled ? .purple : Theme.primary)
+                            Spacer()
+                        } else {
+                            if viewModel.searchText.isEmpty {
+                                VStack(spacing: 24) {
+                                    if !viewModel.categories.isEmpty {
+                                        categoriesSection
                                     }
-                                    .buttonStyle(.plain) // Kartın tasarımını bozmaması için
+                                    
+                                    if let recommendation = viewModel.aiRecommendation {
+                                        HeroBannerView(recommendation: recommendation)
+                                            .padding(.horizontal, Theme.spacing)
+                                    }
+                                    
+                                    if !viewModel.history.isEmpty {
+                                        ProductSwimlaneView(title: "Son Baktıkların", products: viewModel.history) { product in
+                                            cartManager.addToCart(product: product)
+                                        }
+                                    }
+                                    
+                                    if !viewModel.bestsellers.isEmpty {
+                                        ProductSwimlaneView(title: "🔥 En Çok Satanlar", products: viewModel.bestsellers) { product in
+                                            cartManager.addToCart(product: product)
+                                        }
+                                    }
                                 }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             }
-                            .padding(Theme.spacing)
+                            
+                            mainProductGridSection
                         }
                     }
+                    .padding(.vertical, 12)
                 }
             }
             .navigationTitle("Katalog")
-            // Merkezi Rota Tanımı
+            .navigationBarTitleDisplayMode(.inline)
+            // 1. Ürün Detay Rotası (Mevcut)
             .navigationDestination(for: ProductResponse.self) { product in
                 ProductDetailView(product: product)
+                    .onAppear {
+                        Task { await viewModel.recordHistory(productId: product.id, token: appState.token) }
+                    }
+            }
+            // 2. MODERN ROTA ENTEGRASYONU ✅: Netflix AI Vitrini Detay Sayfası
+            .navigationDestination(for: AIRecommendationResponse.self) { rec in
+                AIRecommendationDetailView(recommendation: rec)
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     cartButton
                 }
             }
-            .task { await viewModel.loadProducts() }
-            .onChange(of: viewModel.searchText) { _, newValue in
-                if newValue.isEmpty {
-                    Task { await viewModel.loadProducts() }
+            .task { await viewModel.fetchHomePageData(token: appState.token) }
+            .onChange(of: viewModel.searchText) { _, _ in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    viewModel.searchWithDebounce()
                 }
+            }
+            .alert("Hata", isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { _ in viewModel.errorMessage = nil }
+            )) {
+                Button("Tamam", role: .cancel) { }
+            } message: {
+                Text(viewModel.errorMessage ?? "")
             }
         }
     }
     
-    // MARK: - Arama Barı Bileşeni
-    private var searchBarSection: some View {
-        HStack(spacing: 12) {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(viewModel.isAIEnabled ? .purple : Theme.textSecondary)
-                
-                TextField(viewModel.isAIEnabled ? "AI ile akıllı arama..." : "Ürün ara...", text: $viewModel.searchText)
-                    .textFieldStyle(.plain)
+    // MARK: - UI Subcomponents (Arama ve Grid Yapıları - Dokunulmadı)
+    private var headerAndSearchSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Merhaba, Hoş Geldin 👋")
+                    .font(.system(.title3, design: .rounded).weight(.bold))
                     .foregroundColor(Theme.textPrimary)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .submitLabel(.search)
-                    .onSubmit {
-                        Task { await viewModel.searchProducts() }
+                Text("Senin için en akıllı vitrini hazırladık.")
+                    .font(Theme.captionFont)
+                    .foregroundColor(Theme.textSecondary)
+            }
+            .padding(.horizontal, Theme.spacing)
+            
+            HStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(viewModel.isAIEnabled ? .purple : Theme.textSecondary)
+                    
+                    TextField(viewModel.isAIEnabled ? "AI ile akıllı arama..." : "Ürün ara...", text: $viewModel.searchText)
+                        .textFieldStyle(.plain)
+                        .foregroundColor(Theme.textPrimary)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.search)
+                    
+                    if !viewModel.searchText.isEmpty {
+                        Button { viewModel.searchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundColor(Theme.textSecondary)
+                        }
                     }
+                }
+                .padding().frame(height: 44).background(Theme.surface).cornerRadius(Theme.cornerRadius)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                        .stroke(viewModel.isAIEnabled ? Color.purple.opacity(0.6) : Color.clear, lineWidth: 1.5)
+                )
                 
-                if !viewModel.searchText.isEmpty {
-                    Button {
-                        viewModel.searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(Theme.textSecondary)
+                Button {
+                    withAnimation(.spring()) {
+                        viewModel.isAIEnabled.toggle()
+                        if !viewModel.searchText.isEmpty { viewModel.searchWithDebounce() }
                     }
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(viewModel.isAIEnabled ? .white : .purple)
+                        .frame(width: 44, height: 44)
+                        .background(viewModel.isAIEnabled ? AnyView(LinearGradient(colors: [.purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)) : AnyView(Theme.surface))
+                        .clipShape(Circle())
                 }
             }
-            .padding()
-            .frame(height: 44)
-            .background(Theme.surface)
-            .cornerRadius(Theme.cornerRadius)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                    .stroke(viewModel.isAIEnabled ? Color.purple.opacity(0.6) : Color.clear, lineWidth: 1.5)
-                    .shadow(color: viewModel.isAIEnabled ? .purple.opacity(0.4) : .clear, radius: 4)
-            )
-            .animation(.spring(response: 0.3), value: viewModel.isAIEnabled)
-            
-            Button {
-                withAnimation(.spring()) {
-                    viewModel.isAIEnabled.toggle()
-                }
-            } label: {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(viewModel.isAIEnabled ? .white : .purple)
-                    .frame(width: 44, height: 44)
-                    .background(viewModel.isAIEnabled ? AnyView(LinearGradient(colors: [.purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)) : AnyView(Theme.surface))
-                    .clipShape(Circle())
-                    .shadow(color: viewModel.isAIEnabled ? .purple.opacity(0.5) : .clear, radius: 6)
+            .padding(.horizontal, Theme.spacing)
+        }
+    }
+    
+    private var categoriesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Kategoriler").font(Theme.titleFont).foregroundColor(Theme.textPrimary).padding(.horizontal, Theme.spacing)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 12) {
+                    ForEach(viewModel.categories, id: \.self) { category in
+                        Button { withAnimation(.spring()) { viewModel.searchText = category } } label: {
+                            CategoryCircleView(categoryName: category)
+                        }.buttonStyle(.plain)
+                    }
+                }.padding(.horizontal, Theme.spacing)
+            }
+        }
+    }
+    
+    private var mainProductGridSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(viewModel.searchText.isEmpty ? "Tüm Ürünler" : "Arama Sonuçları").font(Theme.titleFont).foregroundColor(Theme.textPrimary).padding(.horizontal, Theme.spacing)
+            if viewModel.products.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass.circle").font(.system(size: 48)).foregroundColor(Theme.textSecondary)
+                    Text("Kriterlere uygun ürün bulunamadı.").font(Theme.bodyFont).foregroundColor(Theme.textSecondary)
+                }.frame(maxWidth: .infinity, minHeight: 200).padding(.horizontal, Theme.spacing)
+            } else {
+                LazyVGrid(columns: columns, spacing: Theme.spacing) {
+                    ForEach(viewModel.products) { product in
+                        NavigationLink(value: product) {
+                            PremiumProductCardView(product: product) { cartManager.addToCart(product: product) }
+                        }.buttonStyle(.plain)
+                    }
+                }.padding(.horizontal, Theme.spacing)
             }
         }
     }
     
     private var cartButton: some View {
-        Button {
-            withAnimation { selectedTab = 1 }
-        } label: {
+        Button { withAnimation { selectedTab = 1 } } label: {
             Image(systemName: "cart")
                 .overlay(alignment: .topTrailing) {
                     if cartManager.totalItemCount > 0 {
-                        Text("\(cartManager.totalItemCount)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(4)
-                            .background(Color.red)
-                            .clipShape(Circle())
-                            .offset(x: 10, y: -8)
+                        Text("\(cartManager.totalItemCount)").font(.system(size: 10, weight: .bold)).foregroundColor(.white).padding(4).background(Color.red).clipShape(Circle()).offset(x: 10, y: -8)
                     }
                 }
-        }
-        .tint(Theme.primary)
-    }
-
-    @ViewBuilder
-    private func productCard(for product: ProductResponse) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            AsyncImage(url: URL(string: NetworkManager.baseURL + product.image_path)) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView().tint(Theme.primary).frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                case .failure(_):
-                    Image(systemName: "photo").foregroundColor(Theme.textSecondary).frame(maxWidth: .infinity, maxHeight: .infinity)
-                @unknown default:
-                    EmptyView()
-                }
-            }
-            .frame(height: 140)
-            .clipped()
-            .background(Theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(product.title)
-                    .font(Theme.bodyFont.bold())
-                    .foregroundColor(Theme.textPrimary)
-                    .lineLimit(1)
-                
-                Text(product.category)
-                    .font(Theme.captionFont)
-                    .foregroundColor(Theme.textSecondary)
-                    .lineLimit(1)
-                
-                HStack {
-                    Text("\(product.price, specifier: "%.2f") ₺")
-                        .font(Theme.bodyFont.bold())
-                        .foregroundColor(Theme.primary)
-                    
-                    Spacer()
-                    
-                    Button {
-                        let impact = UIImpactFeedbackGenerator(style: .light)
-                        impact.impactOccurred()
-                        cartManager.addToCart(product: product)
-                    } label: {
-                        Image(systemName: "cart.badge.plus")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(Theme.primary)
-                            .padding(8)
-                            .background(Theme.primary.opacity(0.1))
-                            .clipShape(Circle())
-                    }
-                }
-                .padding(.top, 4)
-            }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 12)
-        }
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-                .stroke(Theme.textSecondary.opacity(0.1), lineWidth: Theme.borderWidth)
-        )
+        }.tint(Theme.primary)
     }
 }

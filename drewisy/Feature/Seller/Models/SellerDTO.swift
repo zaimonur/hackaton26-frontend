@@ -18,6 +18,7 @@ struct CreateStoreRequest: Encodable {
     let description: String
 }
 
+// MARK: - Güncellenen ProductResponse
 struct ProductResponse: Decodable, Identifiable, Hashable, Equatable {
     let id: String
     let store_id: String
@@ -27,8 +28,10 @@ struct ProductResponse: Decodable, Identifiable, Hashable, Equatable {
     let price: Double
     let category: String
     let image_path: String
-    let gallery: [String] // EKLENDİ: Çoklu galeri yapısı
+    let gallery: [String]
     let stock: Int
+    // Opsiyonel AI Rozeti
+    let aiSentimentBadge: String?
 }
 
 // AI Entegrasyon Modelleri
@@ -110,4 +113,20 @@ struct SalesDashboardResponse: Decodable, Hashable {
 struct UpdateProductRequest: Encodable {
     let price: Double
     let stock: Int
+}
+
+// MARK: - Tavsiye Response
+struct AIRecommendationResponse: Decodable, Hashable, Equatable {
+    let heroTitle: String
+    let recommendedProducts: [ProductResponse]
+    
+    // JSON'dan gelen snake_case isimleri, Swift'in camelCase isimlerine bağlıyoruz.
+    enum CodingKeys: String, CodingKey {
+        case heroTitle = "hero_title"
+        case recommendedProducts = "recommended_products"
+    }
+}
+
+struct HistoryRequest: Encodable {
+    let product_id: String
 }

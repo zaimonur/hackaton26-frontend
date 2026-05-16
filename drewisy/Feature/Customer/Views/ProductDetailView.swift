@@ -61,9 +61,9 @@ struct ProductDetailView: View {
             }
         }
         .ignoresSafeArea(edges: .top)
+        .navigationBarBackButtonHidden(true) // DÜZELTME: Çift geri butonunu önler
         .overlay(alignment: .topLeading) { BackButton }
         .safeAreaInset(edge: .bottom) { BottomActionBar }
-        // DÜZELTME: Modifier'lar doğru bir şekilde ScrollView'a eklendi
         .overlay(alignment: .bottomTrailing) {
              AIFloatingActionButton
                  .padding(.trailing, Theme.spacing)
@@ -89,7 +89,6 @@ struct ProductDetailView: View {
 // MARK: - Subviews
 extension ProductDetailView {
     
-    // DÜZELTME: Silinen HeroSection geri eklendi
     var HeroSection: some View {
         GeometryReader { geometry in
             let minY = geometry.frame(in: .global).minY
@@ -100,7 +99,8 @@ extension ProductDetailView {
                     if let gallery = viewModel.productDetail?.gallery, !gallery.isEmpty {
                         TabView {
                             ForEach(gallery, id: \.self) { url in
-                                AsyncImage(url: URL(string: url)) { image in
+                                // DÜZELTME: BaseURL Eklendi
+                                AsyncImage(url: URL(string: NetworkManager.baseURL + url)) { image in
                                     image.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
                                     Color.gray.opacity(0.1)
@@ -109,7 +109,8 @@ extension ProductDetailView {
                         }
                         .tabViewStyle(.page)
                     } else {
-                        AsyncImage(url: URL(string: product.image_path)) { image in
+                        // DÜZELTME: BaseURL Eklendi
+                        AsyncImage(url: URL(string: NetworkManager.baseURL + product.image_path)) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Rectangle().fill(Color.gray.opacity(0.1))
@@ -143,6 +144,7 @@ extension ProductDetailView {
                 .offset(y: minY > 0 ? -minY : 0)
             }
             .overlay(alignment: .topTrailing) {
+                // SADECE GÖRÜNMEZ AI ROZETİ (aiSentimentBadge) KALDI
                 if let badge = viewModel.productDetail?.aiSentimentBadge {
                     Text("✨ \(badge)")
                         .font(.caption.bold())
@@ -159,7 +161,6 @@ extension ProductDetailView {
         .frame(height: UIScreen.main.bounds.height * 0.5)
     }
     
-    // DÜZELTME: Silinen AISummaryCard geri eklendi
     func AISummaryCard(summary: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Akıllı Özet", systemImage: "sparkles")
@@ -179,7 +180,6 @@ extension ProductDetailView {
         )
     }
     
-    // DÜZELTME: Silinen BottomActionBar geri eklendi
     var BottomActionBar: some View {
         HStack {
             VStack(alignment: .leading) {
@@ -208,7 +208,6 @@ extension ProductDetailView {
         .background(.ultraThinMaterial)
     }
     
-    // DÜZELTME: Silinen BackButton geri eklendi
     var BackButton: some View {
         Button { dismiss() } label: {
             Image(systemName: "chevron.left")
@@ -231,7 +230,11 @@ extension ProductDetailView {
                 .padding(16)
                 .background(
                     Circle()
-                        .fill(Theme.textSecondary)
+                        .fill(
+                            LinearGradient(colors: [Theme.primary, Theme.primary.opacity(0.7)],
+                                           startPoint: .topLeading,
+                                           endPoint: .bottomTrailing)
+                        )
                         .shadow(color: Theme.textSecondary.opacity(0.4), radius: 8, x: 0, y: 4)
                 )
                 .scaleEffect(isPulsing ? 1.1 : 1.0)
@@ -277,7 +280,7 @@ struct ProductAIAssistantSheet: View {
                             HStack {
                                 ProgressView()
                                     .padding()
-                                    .background(Color.indigo.opacity(0.1)) // Theme.Colors yerine doğrudan renk
+                                    .background(Theme.primary.opacity(0.1))
                                     .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
                                 Spacer()
                             }
@@ -357,31 +360,30 @@ struct ChatBubble: View {
             Text(message.text)
                 .font(.subheadline)
                 .padding(12)
-                .background(bubbleBackground)
-                .foregroundStyle(bubbleForeground)
+                // DÜZELTME: AI Mesajları için Premium Gradient & Beyaz Yazı
+                .background(
+                    Group {
+                        if message.isUser {
+                            Theme.primary
+                        } else {
+                            LinearGradient(
+                                colors: [Theme.primary, Theme.primary.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        }
+                    }
+                )
+                .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
             
             if !message.isUser { Spacer(minLength: 40) }
         }
         .padding(.horizontal, Theme.spacing)
-        // Karmaşık transition'ı parçaladık
         .transition(.asymmetric(
             insertion: .move(edge: message.isUser ? .trailing : .leading).combined(with: .opacity),
             removal: .opacity
         ))
-    }
-    
-    // Renk mantığını dışarı aldık (Derleyici artık çok daha hızlı)
-    private var bubbleBackground: Color {
-        if message.isUser {
-            return Theme.primary
-        } else {
-            return Color.indigo.opacity(0.15)
-        }
-    }
-    
-    private var bubbleForeground: Color {
-        message.isUser ? .white : .primary
     }
 }
 
@@ -411,7 +413,7 @@ struct ReviewRow: View {
     }
 }
 
-// Custom Container to simplify ZStack logic
+// Custom Container
 struct ZKeyStack<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {

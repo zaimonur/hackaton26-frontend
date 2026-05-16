@@ -9,8 +9,8 @@ import SwiftUI
 
 struct CartView: View {
     @Environment(CartManager.self) private var cartManager
-    @Environment(AppState.self) private var appState // Token'a erişim için eklendi
-    @State private var viewModel = CartViewModel() // ViewModel eklendi
+    @Environment(AppState.self) private var appState
+    @State private var viewModel = CartViewModel()
     
     var body: some View {
         NavigationStack {
@@ -46,7 +46,6 @@ struct CartView: View {
                 }
             }
             .navigationTitle("Sepetim")
-            // Merkezi Alert Yönetimi
             .alert("Bilgi", isPresented: $viewModel.showAlert) {
                 Button("Tamam", role: .cancel) { }
             } message: {
@@ -59,6 +58,7 @@ struct CartView: View {
     @ViewBuilder
     private func cartRow(product: ProductResponse, quantity: Int) -> some View {
         HStack(spacing: Theme.spacing) {
+            // DÜZELTME: BaseURL Eklendi
             AsyncImage(url: URL(string: NetworkManager.baseURL + product.image_path)) { phase in
                 if let image = phase.image {
                     image.resizable().scaledToFill()
@@ -149,7 +149,7 @@ struct CartView: View {
                 Group {
                     if viewModel.isSubmitting {
                         ProgressView()
-                            .tint(.white) // Dark/Light moda uyumlu olması için buton içinde zıt renk
+                            .tint(.white)
                     } else {
                         Text("Siparişi Tamamla")
                     }
@@ -161,7 +161,7 @@ struct CartView: View {
                 .foregroundColor(.white)
                 .cornerRadius(Theme.cornerRadius)
             }
-            .disabled(viewModel.isSubmitting) // İstek atılırken mükerrer tıklamayı engelle
+            .disabled(viewModel.isSubmitting)
         }
         .padding(Theme.spacing)
         .background(.ultraThinMaterial)

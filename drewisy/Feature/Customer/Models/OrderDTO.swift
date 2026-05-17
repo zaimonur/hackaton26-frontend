@@ -31,3 +31,26 @@ struct SmartSearchRequest: Encodable {
 struct SmartSearchResponse: Decodable {
     let products: [ProductResponse]
 }
+
+struct CustomerOrderItem: Decodable, Hashable {
+    let product_title: String
+    let product_image: String
+    let quantity: Int
+    let unit_price: Double
+}
+
+struct CustomerOrderResponse: Decodable, Identifiable, Hashable {
+    let id: String
+    let total_amount: Double
+    let status: String
+    let created_at: String
+    let items: [CustomerOrderItem]?
+    
+    enum CodingKeys: String, CodingKey {
+        case id = "order_id"
+        case total_amount
+        case status
+        case created_at
+        case items
+    }
+}

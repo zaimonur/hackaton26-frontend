@@ -12,6 +12,7 @@ struct ProductDetailView: View {
     
     @State private var viewModel = ProductDetailViewModel()
     @Environment(\.dismiss) private var dismiss
+    @Environment(CartManager.self) private var cartManager
     
     @State private var isAssistantSheetPresented = false
     @State private var isPulsing = false
@@ -216,7 +217,7 @@ extension ProductDetailView {
                 }
                 
                 Button {
-                    // Sepete ekleme aksiyonu
+                    cartManager.addToCart(product: product)
                 } label: {
                     Text("Sepete Ekle")
                         .font(.headline)

@@ -17,7 +17,7 @@ struct CustomerProfileView: View {
                 
                 List {
                     Section {
-                        NavigationLink(destination: Text("Siparişler Çok Yakında")) {
+                        NavigationLink(destination: CustomerOrdersView()) {
                             Label("Siparişlerim / Kargo Takibi", systemImage: "shippingbox.fill")
                         }
                         

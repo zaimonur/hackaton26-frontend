@@ -27,7 +27,7 @@ final class WebSocketManager {
         
         // http -> ws dönüşümü
         let wsBaseURL = NetworkManager.baseURL.replacingOccurrences(of: "http", with: "ws")
-        guard let url = URL(string: "\(wsBaseURL)/ws?token=\(token)") else { return }
+        guard let url = URL(string: "\(wsBaseURL)/api/v1/ws?token=\(token)") else { return }
         
         let request = URLRequest(url: url)
         webSocketTask = URLSession.shared.webSocketTask(with: request)

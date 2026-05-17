@@ -11,6 +11,7 @@ struct ProductDetailResponse: Decodable {
     let id: String
     let storeId: String
     let storeName: String
+    let seller_id: String?
     let title: String
     let description: String
     let price: Double
@@ -26,6 +27,7 @@ struct ProductDetailResponse: Decodable {
         case id
         case storeId = "store_id"
         case storeName = "store_name"
+        case seller_id = "seller_id"
         case title
         case description
         case price

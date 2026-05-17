@@ -15,17 +15,32 @@ struct SellerOrderDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Header (Müşteri & Tarih)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Müşteri Bilgileri")
-                        .font(.headline)
-                        .foregroundColor(Theme.textPrimary)
-                    Text(order.customer_email)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Text("Tarih: \(order.created_at)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                // Header (Müşteri Bilgileri ve Mesajlaşma Butonu)
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Müşteri Bilgileri")
+                            .font(.headline)
+                            .foregroundColor(Theme.textPrimary)
+                        Text(order.customer_email)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Text("Tarih: \(order.created_at)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    // GÜNCELLENDİ: Müşteriye doğrudan asimetrik ChatView açan buton
+                    NavigationLink(destination: ChatView(targetId: order.customer_id, targetName: order.customer_email)) {
+                        Image(systemName: "message.fill")
+                            .font(.body)
+                            .foregroundColor(.white)
+                            .frame(width: 42, height: 42)
+                            .background(Theme.primary)
+                            .clipShape(Circle())
+                            .shadow(color: Theme.primary.opacity(0.3), radius: 4, x: 0, y: 2)
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -42,7 +57,7 @@ struct SellerOrderDetailView: View {
                         AsyncImage(url: URL(string: NetworkManager.baseURL + item.product_image)) { image in
                             image.resizable().scaledToFill()
                         } placeholder: {
-                            Theme.surface // Yüklenirken surface rengi skeleton hissiyatı verir
+                            Theme.surface
                         }
                         .frame(width: 60, height: 60)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -74,14 +89,39 @@ struct SellerOrderDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
     
-    // Sadece gerekli olduğunda renderlanan buton modülü
     @ViewBuilder
-    private var actionButtonSection: some View {
-        if order.status == "pending" {
-            Button(action: {
-                Task { await viewModel.updateOrderStatus(orderId: order.id, newStatus: "shipped", token: appState.token) }
-            }) {
-                Text("Kargoya Ver")
+        private var actionButtonSection: some View {
+            if order.status == "pending" {
+                Button(action: {
+                    Task { await viewModel.updateOrderStatus(orderId: order.id, newStatus: "shipped", token: appState.token) }
+                }) {
+                    Text("Kargoya Ver")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.primary)
+                        .cornerRadius(12)
+                }
+                .padding(.top, 16)
+            } else if order.status == "shipped" {
+                Button(action: {
+                    Task { await viewModel.updateOrderStatus(orderId: order.id, newStatus: "delivered", token: appState.token) }
+                }) {
+                    Text("Teslim Edildi İşaretle")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .cornerRadius(12)
+                }
+                .padding(.top, 16)
+            }
+            
+            // Müşteriye Mesaj Gönder Rotası
+            NavigationLink(destination: ChatView(targetId: order.customer_id, targetName: order.customer_email)) {
+                Label("Müşteriye Mesaj Gönder", systemImage: "message.fill")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -89,20 +129,6 @@ struct SellerOrderDetailView: View {
                     .background(Theme.primary)
                     .cornerRadius(12)
             }
-            .padding(.top, 16)
-        } else if order.status == "shipped" {
-            Button(action: {
-                Task { await viewModel.updateOrderStatus(orderId: order.id, newStatus: "delivered", token: appState.token) }
-            }) {
-                Text("Teslim Edildi İşaretle")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .cornerRadius(12)
-            }
-            .padding(.top, 16)
+            .padding(.top, order.status == "pending" || order.status == "shipped" ? 8 : 16)
         }
-    }
 }

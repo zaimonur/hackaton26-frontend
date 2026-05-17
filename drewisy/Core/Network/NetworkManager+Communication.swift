@@ -36,4 +36,13 @@ extension NetworkManager {
             token: token
         )
     }
+    
+    func fetchInbox(token: String?) async throws -> [InboxItemResponse] {
+        return try await request(
+            url: "\(NetworkManager.baseURL)/api/v1/messages/inbox",
+            method: "GET",
+            body: String?.none,
+            token: token
+        )
+    }
 }

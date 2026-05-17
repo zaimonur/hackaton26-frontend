@@ -23,6 +23,7 @@ struct ProductResponse: Decodable, Identifiable, Hashable, Equatable {
     let id: String
     let store_id: String
     let store_name: String
+    let seller_id: String?
     let title: String
     let description: String
     let price: Double
@@ -59,6 +60,7 @@ struct SellerOrderItem: Decodable, Hashable {
 
 struct SellerOrderResponse: Decodable, Identifiable, Hashable {
     let id: String
+    let customer_id: String
     let customer_email: String
     let total_amount: Double
     let status: String
@@ -67,6 +69,7 @@ struct SellerOrderResponse: Decodable, Identifiable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case id = "order_id"
+        case customer_id
         case customer_email
         case total_amount
         case status

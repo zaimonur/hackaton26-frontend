@@ -12,8 +12,8 @@ struct ChatView: View {
     @Bindable var viewModel: ChatViewModel // TextField bağlaması (binding) için
     @FocusState private var isInputFocused: Bool
     
-    init(targetId: String) {
-        _viewModel = Bindable(ChatViewModel(targetId: targetId))
+    init(targetId: String, targetName: String) {
+        _viewModel = Bindable(ChatViewModel(targetId: targetId, targetName: targetName))
     }
     
     var body: some View {
@@ -49,7 +49,7 @@ struct ChatView: View {
             
             chatInputBar
         }
-        .navigationTitle("Sohbet")
+        .navigationTitle(viewModel.targetName)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if viewModel.messages.isEmpty {

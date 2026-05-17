@@ -28,24 +28,26 @@ struct SellerRootView: View {
     }
     
     private func checkStoreStatus() {
-            Task {
-                do {
-                    // body parametresine String?.none vererek Generic B tipini derleyiciye tanıtıyoruz.
-                    let _: [ProductResponse] = try await NetworkManager.shared.request(
-                        url: "http://localhost:8080/api/v1/seller/products",
-                        body: String?.none,
-                        token: appState.token
-                    )
-                    hasStore = true
-                } catch let error as APIError {
-                    if case .serverError(let code, _) = error, code == 404 {
-                        hasStore = false
-                    } else {
-                        hasStore = false
-                    }
-                } catch {
+        Task {
+            do {
+                let _: [ProductResponse] = try await NetworkManager.shared.request(
+                    url: "\(NetworkManager.baseURL)/api/v1/seller/products",
+                    method: "GET",
+                    body: String?.none,
+                    token: appState.token
+                )
+                hasStore = true
+            } catch let error as APIError {
+                print("Store Check API Error: \(error.localizedDescription)")
+                if case .serverError(let code, _) = error, code == 404 {
+                    hasStore = false
+                } else {
                     hasStore = false
                 }
+            } catch {
+                print("Store Check General Error: \(error.localizedDescription)")
+                hasStore = false
             }
         }
+    }
 }

@@ -14,17 +14,28 @@ struct CustomerMainTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             CustomerCatalogView(selectedTab: $selectedTab)
-                .tabItem { Label("Katalog", systemImage: "square.grid.2x2.fill") }
+                .tabItem { Label("Katalog", systemImage: "house.fill") }
                 .tag(0)
+            
+            // Placeholder: AI Chat
+            Text("AI Assistant Çok Yakında")
+                .font(Theme.titleFont)
+                .foregroundColor(Theme.textSecondary)
+                .tabItem { Label("AI Sohbet", systemImage: "sparkles") }
+                .tag(1)
             
             CartView()
                 .tabItem { Label("Sepet", systemImage: "cart.fill") }
                 .badge(cartManager.totalItemCount > 0 ? cartManager.totalItemCount : 0)
-                .tag(1)
-            
-            ProfileSettingsView()
-                .tabItem { Label("Profil", systemImage: "person.crop.circle.fill") }
                 .tag(2)
+            
+            NotificationListView()
+                .tabItem { Label("Bildirimler", systemImage: "bell.fill") }
+                .tag(3)
+            
+            CustomerProfileView()
+                .tabItem { Label("Profil", systemImage: "person.fill") }
+                .tag(4)
         }
         .tint(Theme.primary)
     }

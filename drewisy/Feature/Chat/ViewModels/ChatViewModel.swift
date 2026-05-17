@@ -17,9 +17,11 @@ final class ChatViewModel {
     var messageText: String = ""
     
     let targetId: String
+    let targetName: String
     
-    init(targetId: String) {
+    init(targetId: String, targetName: String) {
         self.targetId = targetId
+        self.targetName = targetName
     }
     
     @MainActor

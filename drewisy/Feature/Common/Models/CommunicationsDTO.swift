@@ -62,3 +62,14 @@ struct WSEvent: Decodable {
         }
     }
 }
+
+// MARK: - Inbox DTO
+struct InboxItemResponse: Decodable, Identifiable {
+    let target_id: String
+    let target_name: String
+    let target_role: String
+    let last_message: String
+    let created_at: String
+    
+    var id: String { target_id }
+}

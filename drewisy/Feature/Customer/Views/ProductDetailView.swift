@@ -125,6 +125,16 @@ extension ProductDetailView {
                 VStack {
                     Spacer()
                     VStack(alignment: .leading, spacing: 4) {
+                        // Mağaza Adı Eklentisi
+                        HStack(spacing: 4) {
+                            Image(systemName: "storefront.fill")
+                                .font(.caption2)
+                            Text(viewModel.productDetail?.storeName ?? product.store_name)
+                                .font(.caption.bold())
+                        }
+                        .foregroundColor(Theme.textSecondary)
+                        .padding(.bottom, 2)
+                        
                         Text(product.title)
                             .font(.title2.bold())
                         Text(String(format: "%.2f TL", product.price))
@@ -135,7 +145,7 @@ extension ProductDetailView {
                     .padding(Theme.spacing)
                     .background(
                         LinearGradient(
-                            colors: [.clear, .black.opacity(0.8)],
+                            colors: [.clear, .black.opacity(0.9)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -181,32 +191,45 @@ extension ProductDetailView {
     }
     
     var BottomActionBar: some View {
-        HStack {
-            VStack(alignment: .leading) {
-                Text("Toplam")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(String(format: "%.2f TL", product.price))
-                    .font(.headline)
+            HStack(spacing: 12) {
+                VStack(alignment: .leading) {
+                    Text("Toplam")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(String(format: "%.2f TL", product.price))
+                        .font(.headline)
+                }
+                
+                Spacer()
+                
+                NavigationLink(destination: ChatView(
+                    targetId: viewModel.productDetail?.seller_id ?? product.seller_id ?? "",
+                    targetName: viewModel.productDetail?.storeName ?? product.store_name
+                )) {
+                    Image(systemName: "message.fill")
+                        .font(.title3)
+                        .foregroundColor(Theme.primary)
+                        .frame(width: 50, height: 50)
+                        .background(Theme.surface)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Theme.primary.opacity(0.3), lineWidth: 1))
+                }
+                
+                Button {
+                    // Sepete ekleme aksiyonu
+                } label: {
+                    Text("Sepete Ekle")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(width: 140, height: 50)
+                        .background(Theme.primary)
+                        .clipShape(Capsule())
+                }
             }
-            
-            Spacer()
-            
-            Button {
-                // Sepete ekleme aksiyonu
-            } label: {
-                Text("Sepete Ekle")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(width: 160, height: 50)
-                    .background(Theme.primary)
-                    .clipShape(Capsule())
-            }
+            .padding(.horizontal, Theme.spacing)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial)
         }
-        .padding(.horizontal, Theme.spacing)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
-    }
     
     var BackButton: some View {
         Button { dismiss() } label: {

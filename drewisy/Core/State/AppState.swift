@@ -9,20 +9,24 @@ import SwiftUI
 import Observation
 
 @Observable
+@MainActor
 final class AppState {
     var isAuthenticated: Bool
     var userRole: String?
     var token: String?
 
     init() {
-        // Değerleri önce yerel sabitlere alıyoruz
         let savedToken = UserDefaults.standard.string(forKey: "jwt_token")
         let savedRole = UserDefaults.standard.string(forKey: "user_role")
         
-        // Şimdi güvenle self'e atayabiliriz
         self.token = savedToken
         self.userRole = savedRole
         self.isAuthenticated = (savedToken != nil)
+        
+        // Uygulama ilk açıldığında aktif bir oturum varsa WebSocket'e bağlan
+        if let validToken = savedToken {
+            WebSocketManager.shared.connect(token: validToken)
+        }
     }
 
     func login(token: String, role: String) {
@@ -31,6 +35,9 @@ final class AppState {
         self.token = token
         self.userRole = role
         self.isAuthenticated = true
+        
+        // Başarılı giriş sonrası WebSocket'i başlat
+        WebSocketManager.shared.connect(token: token)
     }
 
     func logout() {
@@ -39,5 +46,8 @@ final class AppState {
         self.token = nil
         self.userRole = nil
         self.isAuthenticated = false
+        
+        // Oturum kapandığında WebSocket bağlantısını kopar
+        WebSocketManager.shared.disconnect()
     }
 }
